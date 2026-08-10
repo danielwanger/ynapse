@@ -1,5 +1,6 @@
 import LabelTree from "./components/LabelTree";
 import FeedView from "./components/FeedView";
+import SearchLabel from "./components/SearchLabel";
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <h2>Countries</h2>
       <LabelTree labelType="country" />
       <FeedView />
+      <SearchLabel />
     </div>
   );
 }
