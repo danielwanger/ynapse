@@ -1,4 +1,5 @@
 import LabelTree from "./components/LabelTree";
+import FeedView from "./components/FeedView";
 
 function App() {
   return (
@@ -8,6 +9,7 @@ function App() {
       <LabelTree labelType="topic" />
       <h2>Countries</h2>
       <LabelTree labelType="country" />
+      <FeedView />
     </div>
   );
 }

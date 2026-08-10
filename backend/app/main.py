@@ -5,6 +5,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from labels import router as labels_router
+from feed import router as feed_router
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -26,6 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(labels_router)
+app.include_router(feed_router)
 
 
 @app.get("/health")
