@@ -42,7 +42,7 @@ async def semantic_search(q: str = Query(..., min_length=1, max_length=300), lim
                 headers["Authorization"] = f"Bearer {PRIVATE_INSTANCE_TOKEN}"
             embed_res = await client.post(
                 f"{PRIVATE_INSTANCE_URL}/embeddings/internal/embed",
-                json={"text": q},
+                json={"text": q, "mode": "query"},
                 headers=headers,
             )
             embed_res.raise_for_status()
