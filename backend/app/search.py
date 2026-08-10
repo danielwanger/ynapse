@@ -36,7 +36,7 @@ async def semantic_search(q: str = Query(..., min_length=1, max_length=300), lim
     läuft die eigentliche Vektor-Suche gegen die Portfolio-DB.
     """
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {}
             if PRIVATE_INSTANCE_TOKEN:
                 headers["Authorization"] = f"Bearer {PRIVATE_INSTANCE_TOKEN}"
