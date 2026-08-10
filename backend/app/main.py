@@ -6,6 +6,7 @@ from slowapi.errors import RateLimitExceeded
 
 from labels import router as labels_router
 from feed import router as feed_router
+from search import router as search_router, semantic_search
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -28,6 +29,7 @@ app.add_middleware(
 
 app.include_router(labels_router)
 app.include_router(feed_router)
+app.include_router(search_router)
 
 
 @app.get("/health")
