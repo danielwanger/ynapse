@@ -22,7 +22,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "https://magical-melba-7d45f1.netlify.app",
-        "https://ynapse.org",  # sobald Domain verknüpft ist
+        "https://ynapse.org",
+        "https://www.ynapse.org",
     ],
     allow_methods=["GET"],
     allow_headers=["*"],
