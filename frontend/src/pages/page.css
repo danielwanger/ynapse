@@ -1,0 +1,52 @@
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 2rem 3rem;
+}
+
+.page h1 {
+  margin-bottom: 0.3rem;
+}
+
+.page-subtitle {
+  color: #999;
+  margin-bottom: 2rem;
+}
+
+.taxonomy-columns {
+  display: flex;
+  gap: 3rem;
+  flex-wrap: wrap;
+}
+
+.taxonomy-columns > div {
+  flex: 1;
+  min-width: 260px;
+}
+
+.graph-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.toggle-btn {
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #999;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.toggle-btn:hover {
+  color: #eee;
+}
+
+.toggle-btn.active {
+  background: #d9824a;
+  border-color: #d9824a;
+  color: #111;
+  font-weight: 600;
+}
