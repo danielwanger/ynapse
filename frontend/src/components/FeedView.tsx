@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import MultiSelectFilter from "./MultiSelectFilter";
+import "./feedview.css";
 
 interface FeedArticle {
   id: number;
@@ -47,6 +49,7 @@ export default function FeedView() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterUndated, setFilterUndated] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -90,129 +93,110 @@ export default function FeedView() {
   }, [page, filterAgency, filterLabels, filterCountries, filterExcludeLabels, filterDateFrom, filterDateTo, filterUndated]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const activeFilterCount =
+    (filterAgency !== "" ? 1 : 0) +
+    filterLabels.length +
+    filterCountries.length +
+    filterExcludeLabels.length +
+    (filterDateFrom ? 1 : 0) +
+    (filterDateTo ? 1 : 0) +
+    (filterUndated ? 1 : 0);
 
-  const toggleId = (list: number[], id: number, setList: (ids: number[]) => void) => {
-    if (list.includes(id)) setList(list.filter((x) => x !== id));
-    else setList([...list, id]);
-    setPage(1);
-  };
+  const resetPage = () => setPage(1);
 
   return (
-    <div>
-      <h2>Feed ({total} Artikel)</h2>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
-        <div>
-          <label>Agentur: </label>
-          <select
-            value={filterAgency}
-            onChange={(e) => {
-              setFilterAgency(e.target.value ? Number(e.target.value) : "");
-              setPage(1);
-            }}
-          >
-            <option value="">Alle</option>
-            {agencies.map((a) => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>Von: </label>
-          <input type="date" value={filterDateFrom} onChange={(e) => { setFilterDateFrom(e.target.value); setPage(1); }} />
-          <label> Bis: </label>
-          <input type="date" value={filterDateTo} onChange={(e) => { setFilterDateTo(e.target.value); setPage(1); }} />
-        </div>
-
-        <label>
-          <input
-            type="checkbox"
-            checked={filterUndated}
-            onChange={(e) => { setFilterUndated(e.target.checked); setPage(1); }}
-          />
-          {" "}Ohne Datum
-        </label>
+    <div className="feed">
+      <div className="feed-header">
+        <h1>Feed</h1>
+        <span className="feed-count">{total} Artikel</span>
+        <button className="feed-filter-toggle" onClick={() => setFiltersOpen(!filtersOpen)}>
+          Filter {activeFilterCount > 0 && <span className="feed-filter-badge">{activeFilterCount}</span>}
+        </button>
       </div>
 
-      <div style={{ display: "flex", gap: "2rem", marginBottom: "1rem" }}>
-        <div>
-          <strong>Themen</strong>
-          <div style={{ maxHeight: "150px", overflowY: "auto" }}>
-            {topicLabels.map((l) => (
-              <div key={l.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={filterLabels.includes(l.id)}
-                    onChange={() => toggleId(filterLabels, l.id, setFilterLabels)}
-                  />
-                  {" "}{l.name}
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
+      {filtersOpen && (
+        <div className="feed-filters">
+          <div className="feed-filters-row">
+            <div className="msf">
+              <label className="msf-label">Agentur</label>
+              <select
+                className="msf-input"
+                value={filterAgency}
+                onChange={(e) => {
+                  setFilterAgency(e.target.value ? Number(e.target.value) : "");
+                  resetPage();
+                }}
+              >
+                <option value="">Alle</option>
+                {agencies.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <strong>Länder</strong>
-          <div style={{ maxHeight: "150px", overflowY: "auto" }}>
-            {countryLabels.map((l) => (
-              <div key={l.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={filterCountries.includes(l.id)}
-                    onChange={() => toggleId(filterCountries, l.id, setFilterCountries)}
-                  />
-                  {" "}{l.name}
-                </label>
+            <div className="msf">
+              <label className="msf-label">Zeitraum</label>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input type="date" className="msf-input" value={filterDateFrom} onChange={(e) => { setFilterDateFrom(e.target.value); resetPage(); }} />
+                <input type="date" className="msf-input" value={filterDateTo} onChange={(e) => { setFilterDateTo(e.target.value); resetPage(); }} />
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        <div>
-          <strong>NICHT (ausschließen)</strong>
-          <div style={{ maxHeight: "150px", overflowY: "auto" }}>
-            {[...topicLabels, ...countryLabels].map((l) => (
-              <div key={l.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={filterExcludeLabels.includes(l.id)}
-                    onChange={() => toggleId(filterExcludeLabels, l.id, setFilterExcludeLabels)}
-                  />
-                  {" "}{l.name}
-                </label>
-              </div>
-            ))}
+            <label className="feed-checkbox">
+              <input
+                type="checkbox"
+                checked={filterUndated}
+                onChange={(e) => { setFilterUndated(e.target.checked); resetPage(); }}
+              />
+              Ohne Datum
+            </label>
+          </div>
+
+          <div className="feed-filters-row">
+            <MultiSelectFilter
+              label="Themen"
+              options={topicLabels}
+              selected={filterLabels}
+              onChange={(ids) => { setFilterLabels(ids); resetPage(); }}
+            />
+            <MultiSelectFilter
+              label="Länder"
+              options={countryLabels}
+              selected={filterCountries}
+              onChange={(ids) => { setFilterCountries(ids); resetPage(); }}
+            />
+            <MultiSelectFilter
+              label="NICHT (ausschließen)"
+              options={[...topicLabels, ...countryLabels]}
+              selected={filterExcludeLabels}
+              onChange={(ids) => { setFilterExcludeLabels(ids); resetPage(); }}
+            />
           </div>
         </div>
-      </div>
+      )}
 
       {loading ? (
-        <div>Lade...</div>
+        <div className="feed-loading">Lade...</div>
       ) : articles.length === 0 ? (
-        <div>Keine Artikel gefunden.</div>
+        <div className="feed-empty">Keine Artikel gefunden.</div>
       ) : (
         <>
-          <ul style={{ listStyle: "none", padding: 0 }}>
+          <div className="feed-cards">
             {articles.map((a) => (
-              <li key={a.id} style={{ marginBottom: "1rem", borderBottom: "1px solid #eee", paddingBottom: "0.5rem" }}>
-                <div style={{ fontSize: "0.8rem", color: "#888" }}>
+              <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer" className="feed-card">
+                <div className="feed-card-date">
                   {a.published_at ? new Date(a.published_at).toLocaleDateString("de-DE") : "Datum unbekannt"}
                 </div>
-                <a href={a.url} target="_blank" rel="noopener noreferrer">{a.title}</a>
-                {a.meta_description && <p style={{ fontSize: "0.85rem", color: "#666" }}>{a.meta_description}</p>}
-              </li>
+                <div className="feed-card-title">{a.title}</div>
+                {a.meta_description && <div className="feed-card-desc">{a.meta_description}</div>}
+              </a>
             ))}
-          </ul>
+          </div>
 
-          <div>
-            <button onClick={() => setPage((p) => p - 1)} disabled={page === 1}>←</button>
-            <span> {page} / {totalPages} </span>
-            <button onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages}>→</button>
+          <div className="feed-pagination">
+            <button onClick={() => setPage((p) => p - 1)} disabled={page === 1}>← Zurück</button>
+            <span>{page} / {totalPages}</span>
+            <button onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages}>Weiter →</button>
           </div>
         </>
       )}

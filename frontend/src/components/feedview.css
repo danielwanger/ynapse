@@ -1,0 +1,144 @@
+.feed-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.feed-header h1 {
+  margin: 0;
+}
+
+.feed-count {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.feed-filter-toggle {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid #333;
+  color: #ccc;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.feed-filter-toggle:hover {
+  border-color: #d9824a;
+}
+
+.feed-filter-badge {
+  background: #d9824a;
+  color: #111;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.feed-filters {
+  background: #161616;
+  border: 1px solid #262626;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.feed-filters-row {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.feed-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ccc;
+  font-size: 0.9rem;
+  margin-top: 22px;
+}
+
+.feed-loading,
+.feed-empty {
+  color: #888;
+  padding: 2rem 0;
+  text-align: center;
+}
+
+/* Card-Feed statt Liste mit Trennstrichen */
+.feed-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feed-card {
+  display: block;
+  background: #161616;
+  border: 1px solid #262626;
+  border-radius: 10px;
+  padding: 14px 18px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.feed-card:hover {
+  border-color: #d9824a;
+  transform: translateY(-1px);
+}
+
+.feed-card-date {
+  font-size: 0.75rem;
+  color: #777;
+  margin-bottom: 4px;
+}
+
+.feed-card-title {
+  color: #eee;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.feed-card-desc {
+  color: #999;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.feed-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.2rem;
+  margin-top: 1.5rem;
+  color: #ccc;
+}
+
+.feed-pagination button {
+  background: transparent;
+  border: 1px solid #333;
+  color: #ccc;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.feed-pagination button:hover:not(:disabled) {
+  border-color: #d9824a;
+  color: #d9824a;
+}
+
+.feed-pagination button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
