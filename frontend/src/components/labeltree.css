@@ -1,0 +1,68 @@
+.tree-container {
+  font-size: 0.95rem;
+}
+
+.tree-item {
+  position: relative;
+}
+
+.tree-item .tree-item {
+  border-left: 1px solid #2a2a2a;
+  padding-left: 10px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: default;
+  user-select: none;
+}
+
+.tree-row.has-children {
+  cursor: pointer;
+}
+
+.tree-row.has-children:hover {
+  background: #1c1c1c;
+}
+
+.tree-caret {
+  display: inline-block;
+  width: 12px;
+  font-size: 0.75rem;
+  color: #888;
+  transition: transform 0.15s ease;
+}
+
+.tree-caret.open {
+  transform: rotate(90deg);
+}
+
+.tree-caret-placeholder {
+  display: inline-block;
+  width: 12px;
+}
+
+.tree-name {
+  color: #d9824a;
+}
+
+.tree-row:not(.has-children) .tree-name {
+  color: #aaa;
+}
+
+.tree-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #666;
+  background: #222;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.tree-children {
+  margin-top: 2px;
+}
