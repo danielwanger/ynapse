@@ -4,6 +4,11 @@
   padding: 0 2rem 3rem;
 }
 
+.page.page-full {
+  max-width: none;
+  padding: 0 2rem 3rem;
+}
+
 .page h1 {
   margin-bottom: 0.3rem;
 }

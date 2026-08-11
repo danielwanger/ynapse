@@ -1,0 +1,84 @@
+.msf {
+  position: relative;
+  min-width: 200px;
+}
+
+.msf-label {
+  display: block;
+  font-size: 0.85rem;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.msf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.msf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #d9824a22;
+  border: 1px solid #d9824a;
+  color: #d9824a;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.msf-chip:hover {
+  background: #d9824a33;
+}
+
+.msf-chip-x {
+  font-weight: bold;
+}
+
+.msf-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #eee;
+  font-size: 0.9rem;
+}
+
+.msf-input:focus {
+  outline: none;
+  border-color: #d9824a;
+}
+
+.msf-dropdown {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+.msf-option {
+  padding: 7px 10px;
+  font-size: 0.88rem;
+  color: #ccc;
+  cursor: pointer;
+}
+
+.msf-option:hover {
+  background: #2a2a2a;
+}
+
+.msf-option.selected {
+  color: #d9824a;
+  font-weight: 600;
+}
