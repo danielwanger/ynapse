@@ -1,0 +1,68 @@
+.lg-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.lg-search {
+  position: relative;
+  max-width: 350px;
+  flex: 1;
+}
+
+.lg-search input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #eee;
+  font-size: 0.9rem;
+}
+
+.lg-search input:focus {
+  outline: none;
+  border-color: #d9824a;
+}
+
+.lg-search-dropdown {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+.lg-search-option {
+  padding: 7px 12px;
+  font-size: 0.88rem;
+  color: #ccc;
+  cursor: pointer;
+}
+
+.lg-search-option:hover {
+  background: #2a2a2a;
+  color: #d9824a;
+}
+
+.lg-reset {
+  background: transparent;
+  border: 1px solid #d9824a;
+  color: #d9824a;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.lg-reset:hover {
+  background: #d9824a22;
+}
