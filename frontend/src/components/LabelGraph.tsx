@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { api } from "../api";
+import "./labelgraph.css";
 
 interface LabelNode {
   id: number;
@@ -34,6 +35,11 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [allLabels, setAllLabels] = useState<LabelNode[]>([]);
+
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selected, setSelected] = useState<LabelNode | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -42,7 +48,9 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
       try {
         const params = labelType ? { label_type: labelType } : {};
         const { data } = await api.get<LabelNode[]>("/labels/", { params });
-        renderGraph(data);
+        setAllLabels(data);
+        setSelected(null);
+        setQuery("");
       } catch (err) {
         console.error(err);
         setError("Konnte Taxonomie nicht laden.");
@@ -50,8 +58,36 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [labelType]);
+
+  useEffect(() => {
+    if (allLabels.length === 0) return;
+    const subset = selected ? computeSubgraph(allLabels, selected.id) : allLabels;
+    renderGraph(subset);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allLabels, selected]);
+
+  function computeSubgraph(labels: LabelNode[], centerId: number): LabelNode[] {
+    // Vorfahren: alle ids im path des zentralen Knotens (ausser er selbst).
+    // Nachkommen: alle Knoten, deren path die centerId enthaelt.
+    const centerRows = labels.filter((l) => l.id === centerId);
+    const ancestorIds = new Set<number>();
+    for (const row of centerRows) {
+      for (const id of row.path) ancestorIds.add(id);
+    }
+    const relevantIds = new Set<number>(ancestorIds);
+    for (const l of labels) {
+      if (l.path.includes(centerId)) relevantIds.add(l.id);
+    }
+    return labels.filter((l) => relevantIds.has(l.id));
+  }
+
+  const searchMatches = query.trim()
+    ? allLabels
+        .filter((l, i, arr) => arr.findIndex((x) => x.id === l.id) === i)
+        .filter((l) => l.name.toLowerCase().includes(query.trim().toLowerCase()))
+        .slice(0, 20)
+    : [];
 
   function renderGraph(labels: LabelNode[]) {
     if (!svgRef.current) return;
@@ -59,7 +95,6 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
     const width = svgRef.current.parentElement?.clientWidth || 900;
     const height = 700;
 
-    // Reachability: Nachkommen (abwaerts) + distinkte Vorfahren (aufwaerts).
     const descendantCounts = new Map<number, number>();
     const ancestorSets = new Map<number, Set<number>>();
     for (const l of labels) {
@@ -76,8 +111,6 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
     const reachOf = (id: number) =>
       (descendantCounts.get(id) ?? 0) + (ancestorSets.get(id)?.size ?? 0);
 
-    // Knoten deduplizieren (DAG: ein Label kann mehrfach in der flachen
-    // Liste auftauchen, einmal pro Pfad).
     const nodeById = new Map<number, GraphNode>();
     for (const l of labels) {
       if (!nodeById.has(l.id)) {
@@ -97,7 +130,6 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
     }
     const nodes: GraphNode[] = Array.from(nodeById.values());
 
-    // Core: depth 0 (Wurzeln). Hub: hohe Reachability, aber kein Core.
     const reachValues = nodes.map((n) => n.reach).sort((a, b) => b - a);
     const hubThreshold = reachValues[Math.floor(reachValues.length * 0.05)] ?? Infinity;
     for (const n of nodes) {
@@ -105,11 +137,11 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
       n.isHub = !n.isCore && n.reach >= hubThreshold && n.reach > 0;
     }
 
-    // Kanten deduplizieren
     const seenLinks = new Set<string>();
     const links: GraphLink[] = [];
     for (const l of labels) {
       if (l.parent_id === null) continue;
+      if (!nodeById.has(l.parent_id) || !nodeById.has(l.id)) continue;
       const key = `${l.parent_id}-${l.id}`;
       if (seenLinks.has(key)) continue;
       seenLinks.add(key);
@@ -157,7 +189,6 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
       .force("x", d3.forceX(width / 2).strength(0.01))
       .force("y", d3.forceY(height / 2).strength(0.01));
 
-    // Zoom/Pan
     svg.call(
       d3
         .zoom<SVGSVGElement, unknown>()
@@ -188,10 +219,17 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
         if (d.isHub) return "#f2c14e";
         return d.label_type === "country" ? "#4a90d9" : "#69b3a2";
       })
+      .attr("stroke", (d) => (d.id === selected?.id ? "#fff" : "none"))
+      .attr("stroke-width", (d) => (d.id === selected?.id ? 3 : 0))
       .style("cursor", "pointer")
       .call(drag(simulation));
 
     node.append("title").text((d) => `${d.name} (Reach: ${d.reach})`);
+
+    node.on("click", (_event, d) => {
+      const match = allLabels.find((l) => l.id === d.id);
+      if (match) setSelected(match);
+    });
 
     const label = g
       .append("g")
@@ -208,8 +246,6 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
       .style("pointer-events", "none")
       .style("opacity", (d) => (d.isCore || d.isHub ? 1 : 0));
 
-    // Labels der Nicht-Hub/Core-Knoten erscheinen erst beim Reinzoomen --
-    // verhindert die Textwolke bei 500+ Knoten.
     function updateLabelVisibility(scale: number) {
       label.style("opacity", (d) => {
         if (d.isCore || d.isHub) return 1;
@@ -242,7 +278,6 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
     }
     function dragended(event: d3.D3DragEvent<SVGCircleElement, GraphNode, GraphNode>) {
       if (!event.active) simulation.alphaTarget(0);
-      // Core-Knoten bleiben fixiert nach dem Ziehen, wie im Obsidian-Plugin.
       if (!event.subject.isCore) {
         event.subject.fx = null;
         event.subject.fy = null;
@@ -257,7 +292,49 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
 
   return (
     <div>
-      <h3>Labelgraph</h3>
+      <div className="lg-controls">
+        <div className="lg-search">
+          <input
+            type="text"
+            placeholder="Label suchen, um gefiltert zu starten..."
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSearchOpen(true);
+            }}
+            onFocus={() => setSearchOpen(true)}
+          />
+          {searchOpen && searchMatches.length > 0 && (
+            <div className="lg-search-dropdown">
+              {searchMatches.map((l) => (
+                <div
+                  key={l.id}
+                  className="lg-search-option"
+                  onClick={() => {
+                    setSelected(l);
+                    setQuery(l.name);
+                    setSearchOpen(false);
+                  }}
+                >
+                  {l.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {selected && (
+          <button
+            className="lg-reset"
+            onClick={() => {
+              setSelected(null);
+              setQuery("");
+            }}
+          >
+            Filter zurücksetzen (zeige alle)
+          </button>
+        )}
+      </div>
+
       {loading && <div>Lade Graph...</div>}
       {error && <div style={{ color: "crimson" }}>{error}</div>}
       <svg ref={svgRef} style={{ width: "100%", height: "700px", border: "1px solid #262626", borderRadius: "8px", background: "#0d0d0d" }} />
