@@ -8,6 +8,9 @@
 }
 
 .nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   font-weight: 700;
   font-size: 1.2rem;
   letter-spacing: 0.02em;
@@ -34,4 +37,11 @@
 .nav-link.active {
   color: #d9824a;
   border-bottom-color: #d9824a;
+}
+
+.nav-logo {
+  height: 28px;
+  width: 28px;
+  object-fit: contain;
+  border-radius: 6px;
 }
