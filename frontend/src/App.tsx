@@ -1,19 +1,20 @@
-import LabelTree from "./components/LabelTree";
-import FeedView from "./components/FeedView";
-import SearchLabel from "./components/SearchLabel";
-import LabelGraph from "./components/LabelGraph";
+import { Routes, Route } from "react-router-dom";
+import Nav from "./components/Nav";
+import TaxonomyPage from "./pages/TaxonomyPage";
+import FeedPage from "./pages/FeedPage";
+import SearchPage from "./pages/SearchPage";
+import GraphPage from "./pages/GraphPage";
 
 function App() {
   return (
-    <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-      <h1>Ynapse</h1>
-      <h2>Topics</h2>
-      <LabelTree labelType="topic" />
-      <h2>Countries</h2>
-      <LabelTree labelType="country" />
-      <FeedView />
-      <SearchLabel />
-      <LabelGraph />
+    <div>
+      <Nav />
+      <Routes>
+        <Route path="/" element={<TaxonomyPage />} />
+        <Route path="/feed" element={<FeedPage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/graph" element={<GraphPage />} />
+      </Routes>
     </div>
   );
 }
