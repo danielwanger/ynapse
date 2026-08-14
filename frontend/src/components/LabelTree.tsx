@@ -58,7 +58,7 @@ function TreeItem({
   depth: number;
   onNavigate: (id: number) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(depth === 0);
   const hasChildren = node.children.length > 0;
 
   return (
@@ -124,7 +124,7 @@ export default function LabelTree({ labelType }: LabelTreeProps) {
   }, [labelType]);
 
   const handleNavigate = (id: number) => {
-    navigate(`/feed?${labelType}=${id}`);
+    navigate(`/topics/${id}`);
   };
 
   if (loading) return <div>Lade Taxonomie...</div>;

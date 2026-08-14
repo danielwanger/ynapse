@@ -110,7 +110,7 @@ export default function SearchPage() {
   };
 
   const goToLabel = (l: Label) => {
-    navigate(`/feed?${l.label_type}=${l.id}`);
+    navigate(`/topics/${l.id}`);
   };
 
   // Semantische Treffer, die schon als exakter Texttreffer angezeigt werden,

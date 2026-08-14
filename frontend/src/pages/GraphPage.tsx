@@ -22,9 +22,9 @@ export default function GraphPage() {
   const [labelType, setLabelType] = useState<"topic" | "country" | undefined>(initialLabelType);
 
   return (
-    <div className="page page-full">
-      <h1>Labelgraph</h1>
-      <div className="graph-toggle">
+    <div className="page page-full" style={{ textAlign: "left" }}>
+      <h1 style={{ textAlign: "left", marginBottom: "1rem" }}>Labelgraph</h1>
+      <div className="graph-toggle" style={{ marginBottom: "1.2rem" }}>
         <button className={labelType === undefined ? "toggle-btn active" : "toggle-btn"} onClick={() => setLabelType(undefined)}>
           Alle
         </button>
