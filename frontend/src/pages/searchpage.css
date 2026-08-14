@@ -1,0 +1,138 @@
+.search-hero {
+  max-width: 720px;
+  margin: 4rem auto 3rem;
+  padding: 0 2rem;
+  text-align: center;
+}
+
+.search-title {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.search-subtitle {
+  color: #999;
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+}
+
+.search-bar {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #161616;
+  color: #eee;
+  font-size: 1rem;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #d9824a;
+}
+
+.search-bar button {
+  padding: 0.7rem 1.4rem;
+  border-radius: 8px;
+  border: none;
+  background: #d9824a;
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-bar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.search-results {
+  margin-top: 2.5rem;
+  text-align: left;
+}
+
+.search-section {
+  margin-bottom: 2rem;
+}
+
+.search-section h3 {
+  font-size: 1rem;
+  color: #ccc;
+  margin-bottom: 0.8rem;
+}
+
+.search-label-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.search-label-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #333;
+  background: #161616;
+  color: #eee;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.search-label-chip:hover {
+  border-color: #d9824a;
+  color: #d9824a;
+}
+
+.search-label-type {
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.search-article-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.search-article-card {
+  padding: 0.9rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid #262626;
+  background: #161616;
+}
+
+.search-article-title {
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+
+.search-article-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.search-article-meta a {
+  color: #d9824a;
+  text-decoration: none;
+}
+
+.search-article-meta a:hover {
+  text-decoration: underline;
+}
+
+.loading-hint {
+  font-size: 0.85rem;
+  color: #888;
+}
