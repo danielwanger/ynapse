@@ -69,8 +69,19 @@ export default function FeedView() {
           api.get<Label[]>("/labels/", { params: { label_type: "country" } }),
         ]);
         setAgencies(agenciesRes.data);
-        setTopicLabels(topicsRes.data);
-        setCountryLabels(countriesRes.data);
+        // label_tree() liefert pro Elternpfad eine eigene Zeile -- Labels mit
+        // mehreren Eltern (DAG) tauchen also mehrfach mit derselben id auf.
+        // Fuer Dropdowns/Multi-Select brauchen wir jede id nur einmal.
+        const dedupeById = (labels: Label[]) => {
+          const seen = new Set<number>();
+          return labels.filter((l) => {
+            if (seen.has(l.id)) return false;
+            seen.add(l.id);
+            return true;
+          });
+        };
+        setTopicLabels(dedupeById(topicsRes.data));
+        setCountryLabels(dedupeById(countriesRes.data));
       } catch (err) {
         console.error(err);
       }
