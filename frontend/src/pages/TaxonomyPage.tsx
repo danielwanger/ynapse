@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import LabelTree from "../components/LabelTree";
 import { api } from "../api";
 import "./page.css";
@@ -38,13 +38,20 @@ export default function TaxonomyPage() {
   const goToLabel = (r: LabelSearchResult) => {
     setResults([]);
     setQuery("");
-    navigate(`/feed?${r.label_type}=${r.id}`);
+    navigate(`/topics/${r.id}`);
   };
 
   return (
     <div className="page">
-      <h1>Themen</h1>
-      <p className="page-subtitle">Themen- und Länder-Hierarchie im Überblick.</p>
+      <div className="page-header-row">
+        <div>
+          <h1>Themen</h1>
+          <p className="page-subtitle">Themen- und Länder-Hierarchie im Überblick.</p>
+        </div>
+        <Link to="/graph" className="taxonomy-graph-link">
+          Vollständigen Graph anzeigen →
+        </Link>
+      </div>
 
       <div className="taxonomy-search">
         <input

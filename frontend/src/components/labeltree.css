@@ -1,68 +1,72 @@
-.tree-container {
-  font-size: 0.95rem;
-}
-
-.tree-item {
-  position: relative;
-}
-
-.tree-item .tree-item {
-  border-left: 1px solid #2a2a2a;
-  padding-left: 10px;
-}
-
-.tree-row {
+.lg-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  border-radius: 4px;
-  cursor: default;
-  user-select: none;
+  gap: 12px;
+  margin-bottom: 10px;
+  width: 100%;
 }
 
-.tree-row.has-children {
+.lg-search {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 200px;
+}
+
+.lg-search input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #eee;
+  font-size: 0.9rem;
+}
+
+.lg-search input:focus {
+  outline: none;
+  border-color: #d9824a;
+}
+
+.lg-search-dropdown {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+.lg-search-option {
+  padding: 7px 12px;
+  font-size: 0.88rem;
+  color: #ccc;
   cursor: pointer;
 }
 
-.tree-row.has-children:hover {
-  background: #1c1c1c;
-}
-
-.tree-caret {
-  display: inline-block;
-  width: 12px;
-  font-size: 0.75rem;
-  color: #888;
-  transition: transform 0.15s ease;
-}
-
-.tree-caret.open {
-  transform: rotate(90deg);
-}
-
-.tree-caret-placeholder {
-  display: inline-block;
-  width: 12px;
-}
-
-.tree-name {
+.lg-search-option:hover {
+  background: #2a2a2a;
   color: #d9824a;
 }
 
-.tree-row:not(.has-children) .tree-name {
-  color: #aaa;
-}
-
-.tree-count {
+.lg-reset {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid #d9824a;
+  color: #d9824a;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
   margin-left: auto;
-  font-size: 0.75rem;
-  color: #666;
-  background: #222;
-  padding: 1px 6px;
-  border-radius: 10px;
 }
 
-.tree-children {
-  margin-top: 2px;
+.lg-reset:hover {
+  background: #d9824a22;
 }

@@ -108,3 +108,22 @@
   color: #888;
   text-transform: uppercase;
 }
+
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.taxonomy-graph-link {
+  color: #d9824a;
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  margin-top: 0.4rem;
+}
+
+.taxonomy-graph-link:hover {
+  text-decoration: underline;
+}
