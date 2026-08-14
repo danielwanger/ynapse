@@ -58,7 +58,7 @@ function TreeItem({
   depth: number;
   onNavigate: (id: number) => void;
 }) {
-  const [open, setOpen] = useState(depth === 0);
+  const [open, setOpen] = useState(false);
   const hasChildren = node.children.length > 0;
 
   return (
