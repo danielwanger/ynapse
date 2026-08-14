@@ -55,3 +55,56 @@
   color: #111;
   font-weight: 600;
 }
+
+.taxonomy-search {
+  position: relative;
+  max-width: 400px;
+  margin-bottom: 2rem;
+}
+
+.taxonomy-search input {
+  width: 100%;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #161616;
+  color: #eee;
+  font-size: 0.95rem;
+}
+
+.taxonomy-search input:focus {
+  outline: none;
+  border-color: #d9824a;
+}
+
+.taxonomy-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #161616;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.taxonomy-search-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.taxonomy-search-option:hover {
+  background: #1f1f1f;
+}
+
+.taxonomy-search-type {
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+}

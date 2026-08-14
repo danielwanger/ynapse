@@ -1,9 +1,25 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import LabelGraph from "../components/LabelGraph";
 import "./page.css";
 
 export default function GraphPage() {
-  const [labelType, setLabelType] = useState<"topic" | "country" | undefined>(undefined);
+  const [searchParams] = useSearchParams();
+  const topicParam = searchParams.get("topic");
+  const countryParam = searchParams.get("country");
+
+  const initialLabelType: "topic" | "country" | undefined = topicParam
+    ? "topic"
+    : countryParam
+    ? "country"
+    : undefined;
+  const initialSelectedId = topicParam
+    ? Number(topicParam)
+    : countryParam
+    ? Number(countryParam)
+    : undefined;
+
+  const [labelType, setLabelType] = useState<"topic" | "country" | undefined>(initialLabelType);
 
   return (
     <div className="page page-full">
@@ -19,7 +35,13 @@ export default function GraphPage() {
           Countries
         </button>
       </div>
-      <LabelGraph labelType={labelType} />
+      {/* Vorauswahl nur übergeben, solange der Nutzer nicht manuell auf einen
+          anderen Typ umgeschaltet hat -- sonst würde eine Topic-Id versucht
+          im Country-Graph aufgelöst zu werden. */}
+      <LabelGraph
+        labelType={labelType}
+        initialSelectedId={labelType === initialLabelType ? initialSelectedId : undefined}
+      />
     </div>
   );
 }

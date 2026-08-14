@@ -29,9 +29,17 @@ interface GraphLink {
 
 interface LabelGraphProps {
   labelType?: "topic" | "country";
+  /**
+   * Optional: Label-Id, die beim ersten Laden automatisch als gefilterter
+   * Mittelpunkt ausgewählt wird (z.B. wenn man vom Feed aus über
+   * "Graph anzeigen" hierher kommt). Wird nur einmal angewendet -- wenn der
+   * Nutzer den Filter danach manuell zurücksetzt oder ändert, wird nicht
+   * erneut eingegriffen.
+   */
+  initialSelectedId?: number;
 }
 
-export default function LabelGraph({ labelType }: LabelGraphProps) {
+export default function LabelGraph({ labelType, initialSelectedId }: LabelGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +48,8 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selected, setSelected] = useState<LabelNode | null>(null);
+
+  const appliedInitial = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -51,6 +61,7 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
         setAllLabels(data);
         setSelected(null);
         setQuery("");
+        appliedInitial.current = false;
       } catch (err) {
         console.error(err);
         setError("Konnte Taxonomie nicht laden.");
@@ -59,6 +70,17 @@ export default function LabelGraph({ labelType }: LabelGraphProps) {
       }
     })();
   }, [labelType]);
+
+  // Vorauswahl einmalig anwenden, sobald die Labels geladen sind.
+  useEffect(() => {
+    if (allLabels.length === 0 || appliedInitial.current || initialSelectedId === undefined) return;
+    const match = allLabels.find((l) => l.id === initialSelectedId);
+    if (match) {
+      setSelected(match);
+      setQuery(match.name);
+    }
+    appliedInitial.current = true;
+  }, [allLabels, initialSelectedId]);
 
   useEffect(() => {
     if (allLabels.length === 0) return;

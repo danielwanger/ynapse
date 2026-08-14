@@ -7,6 +7,11 @@ Unterschied zur ersten Version (seed_portfolio.py): kein ARTICLE_LIMIT
 mehr -- holt wirklich alle Artikel mit vorhandenem Embedding, nicht nur
 eine kuratierte Auswahl von 30.
 
+Wichtig: Der Artikel-Read paginiert jetzt explizit (.range()), weil
+Supabase/PostgREST Selects standardmäßig auf 1000 Zeilen pro Query
+begrenzt (API-Setting "Max Rows") -- ohne Pagination wurden bei mehr
+als 1000 privaten Artikeln stillschweigend nur die ersten 1000 kopiert.
+
 Bereits vorhandene Artikel (gleiche URL) und Labels (gleicher Name +
 label_type) werden übersprungen, das Skript ist also wiederholt
 ausführbar, ohne Duplikate zu erzeugen.
@@ -44,7 +49,6 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
             print(f"  [DRY RUN] wuerde {len(tree)} {label_type}-Labels + Beziehungen kopieren")
             continue
 
-        # Erst alle Labels ohne Beziehungen anlegen (dedupliziert nach id)
         seen_ids = set()
         for row in tree:
             if row["id"] in seen_ids:
@@ -67,7 +71,6 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
             )
             id_map[row["id"]] = created.data[0]["id"]
 
-        # Danach Beziehungen mit den neuen ids nachziehen
         seen_rels = set()
         for row in tree:
             if row["parent_id"] is None:
@@ -97,17 +100,35 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
     return id_map
 
 
+def fetch_all_articles_with_embedding():
+    """Holt ALLE Artikel mit Embedding aus der privaten DB, paginiert in
+    1000er-Bloecken (PostgREST-Default-Limit umgehen)."""
+    PAGE_SIZE = 1000
+    articles = []
+    offset = 0
+    while True:
+        batch = (
+            private.table("articles")
+            .select("id, title, url, meta_description, agency, published_at, embedding")
+            .not_.is_("embedding", "null")
+            .order("id")
+            .range(offset, offset + PAGE_SIZE - 1)
+            .execute()
+            .data
+        )
+        articles.extend(batch)
+        print(f"  ...{len(articles)} bisher geladen")
+        if len(batch) < PAGE_SIZE:
+            break
+        offset += PAGE_SIZE
+    return articles
+
+
 def seed_articles(id_map: dict[int, int], dry_run: bool):
     """Kopiert ALLE Artikel mit vorhandenem Embedding und ihre
     Label-Zuordnungen -- keine Obergrenze mehr."""
-    articles = (
-        private.table("articles")
-        .select("id, title, url, meta_description, agency, published_at, embedding")
-        .not_.is_("embedding", "null")
-        .order("published_at", desc=True)
-        .execute()
-        .data
-    )
+    print("\nLade Artikel aus privater DB (paginiert)...")
+    articles = fetch_all_articles_with_embedding()
 
     # Nicht-öffentliche Einträge raus -- alles, was über manual:// angelegt
     # wurde (z. B. eigene Notizen statt echter News-Artikel), soll nicht
@@ -176,9 +197,6 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
         )
         new_article_id = created_article.data[0]["id"]
 
-        # Label-Zuordnungen mitkopieren (nur die, deren Label auch in
-        # id_map ist, also Teil der Taxonomie ist, die wir gerade kopiert
-        # haben -- Meta-Labels werden dadurch automatisch uebersprungen)
         private_labels = (
             private.table("article_label")
             .select("label_id")
@@ -195,7 +213,8 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
             ).execute()
 
         copied += 1
-        print(f"  kopiert: {article['title']}")
+        if copied % 100 == 0:
+            print(f"  {copied} kopiert...")
 
     print(f"\n{copied} Artikel neu kopiert, {skipped} bereits vorhanden (uebersprungen)")
 

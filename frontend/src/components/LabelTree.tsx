@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import "./labeltree.css";
 
@@ -18,15 +19,13 @@ interface TreeNode {
 }
 
 interface LabelTreeProps {
-  labelType?: "topic" | "country";
+  labelType: "topic" | "country";
 }
 
 function buildTree(flat: LabelNode[]): TreeNode[] {
   const nodeMap = new Map<number, TreeNode>();
   const roots: TreeNode[] = [];
 
-  // Erst alle Knoten anlegen (dedupliziert, falls ein Label mehrere
-  // Eltern-Pfade hat -- hier wird es einmal als eigener Knoten gefuehrt)
   for (const l of flat) {
     if (!nodeMap.has(l.id)) {
       nodeMap.set(l.id, { id: l.id, name: l.name, children: [] });
@@ -50,22 +49,41 @@ function buildTree(flat: LabelNode[]): TreeNode[] {
   return roots.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function TreeItem({ node, depth }: { node: TreeNode; depth: number }) {
-  const [open, setOpen] = useState(depth === 0);
+function TreeItem({
+  node,
+  depth,
+  onNavigate,
+}: {
+  node: TreeNode;
+  depth: number;
+  onNavigate: (id: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
   const hasChildren = node.children.length > 0;
 
   return (
     <div className="tree-item" style={{ marginLeft: depth === 0 ? 0 : 18 }}>
-      <div
-        className={`tree-row ${hasChildren ? "has-children" : ""}`}
-        onClick={() => hasChildren && setOpen(!open)}
-      >
+      <div className={`tree-row ${hasChildren ? "has-children" : ""}`}>
         {hasChildren ? (
-          <span className={`tree-caret ${open ? "open" : ""}`}>▸</span>
+          <span
+            className={`tree-caret ${open ? "open" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(!open);
+            }}
+          >
+            ▸
+          </span>
         ) : (
           <span className="tree-caret-placeholder" />
         )}
-        <span className="tree-name">{node.name}</span>
+        <span
+          className="tree-name"
+          style={{ cursor: "pointer" }}
+          onClick={() => onNavigate(node.id)}
+        >
+          {node.name}
+        </span>
         {hasChildren && <span className="tree-count">{node.children.length}</span>}
       </div>
       {hasChildren && open && (
@@ -73,7 +91,7 @@ function TreeItem({ node, depth }: { node: TreeNode; depth: number }) {
           {node.children
             .sort((a, b) => a.name.localeCompare(b.name))
             .map((child) => (
-              <TreeItem key={child.id} node={child} depth={depth + 1} />
+              <TreeItem key={child.id} node={child} depth={depth + 1} onNavigate={onNavigate} />
             ))}
         </div>
       )}
@@ -85,14 +103,16 @@ export default function LabelTree({ labelType }: LabelTreeProps) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        const params = labelType ? { label_type: labelType } : {};
-        const { data } = await api.get<LabelNode[]>("/labels/", { params });
+        const { data } = await api.get<LabelNode[]>("/labels/", {
+          params: { label_type: labelType },
+        });
         setTree(buildTree(data));
       } catch (err) {
         console.error(err);
@@ -103,6 +123,10 @@ export default function LabelTree({ labelType }: LabelTreeProps) {
     })();
   }, [labelType]);
 
+  const handleNavigate = (id: number) => {
+    navigate(`/feed?${labelType}=${id}`);
+  };
+
   if (loading) return <div>Lade Taxonomie...</div>;
   if (error) return <div style={{ color: "crimson" }}>{error}</div>;
   if (tree.length === 0) return <div>Keine Labels gefunden.</div>;
@@ -110,7 +134,7 @@ export default function LabelTree({ labelType }: LabelTreeProps) {
   return (
     <div className="tree-container">
       {tree.map((node) => (
-        <TreeItem key={node.id} node={node} depth={0} />
+        <TreeItem key={node.id} node={node} depth={0} onNavigate={handleNavigate} />
       ))}
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import MultiSelectFilter from "./MultiSelectFilter";
 import "./feedview.css";
@@ -34,6 +34,10 @@ interface Label {
 const PAGE_SIZE = 20;
 
 export default function FeedView() {
+  const [searchParams] = useSearchParams();
+  const initialTopic = searchParams.get("topic");
+  const initialCountry = searchParams.get("country");
+
   const [articles, setArticles] = useState<FeedArticle[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -44,13 +48,17 @@ export default function FeedView() {
   const [countryLabels, setCountryLabels] = useState<Label[]>([]);
 
   const [filterAgency, setFilterAgency] = useState<number | "">("");
-  const [filterLabels, setFilterLabels] = useState<number[]>([]);
-  const [filterCountries, setFilterCountries] = useState<number[]>([]);
+  const [filterLabels, setFilterLabels] = useState<number[]>(
+    initialTopic ? [Number(initialTopic)] : []
+  );
+  const [filterCountries, setFilterCountries] = useState<number[]>(
+    initialCountry ? [Number(initialCountry)] : []
+  );
   const [filterExcludeLabels, setFilterExcludeLabels] = useState<number[]>([]);
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterUndated, setFilterUndated] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(Boolean(initialTopic || initialCountry));
 
   useEffect(() => {
     (async () => {
@@ -105,11 +113,25 @@ export default function FeedView() {
 
   const resetPage = () => setPage(1);
 
+  // Bei genau einem aktiven Topic- oder Country-Filter (und sonst keinem)
+  // kann der Labelgraph gefiltert auf dieses eine Label geöffnet werden.
+  const graphLink =
+    filterLabels.length === 1 && filterCountries.length === 0
+      ? `/graph?topic=${filterLabels[0]}`
+      : filterCountries.length === 1 && filterLabels.length === 0
+      ? `/graph?country=${filterCountries[0]}`
+      : null;
+
   return (
     <div className="feed">
       <div className="feed-header">
         <h1>Feed</h1>
         <span className="feed-count">{total} Artikel</span>
+        {graphLink && (
+          <Link to={graphLink} className="feed-graph-link">
+            Graph anzeigen →
+          </Link>
+        )}
         <button className="feed-filter-toggle" onClick={() => setFiltersOpen(!filtersOpen)}>
           Filter {activeFilterCount > 0 && <span className="feed-filter-badge">{activeFilterCount}</span>}
         </button>
