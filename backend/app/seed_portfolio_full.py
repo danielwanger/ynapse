@@ -1,20 +1,18 @@
 """
-Einmaliges Seeding-Skript: kopiert die komplette bereinigte Taxonomie
-(topic + country) und ALLE Artikel mit Embedding aus der privaten
+Einmaliges/wiederholbares Seeding-Skript: kopiert die komplette bereinigte
+Taxonomie (topic + country) und ALLE Artikel mit Embedding aus der privaten
 Ynapse-DB in die Portfolio-DB.
 
-Unterschied zur ersten Version (seed_portfolio.py): kein ARTICLE_LIMIT
-mehr -- holt wirklich alle Artikel mit vorhandenem Embedding, nicht nur
-eine kuratierte Auswahl von 30.
-
-Wichtig: Der Artikel-Read paginiert jetzt explizit (.range()), weil
-Supabase/PostgREST Selects standardmäßig auf 1000 Zeilen pro Query
-begrenzt (API-Setting "Max Rows") -- ohne Pagination wurden bei mehr
-als 1000 privaten Artikeln stillschweigend nur die ersten 1000 kopiert.
-
-Bereits vorhandene Artikel (gleiche URL) und Labels (gleicher Name +
-label_type) werden übersprungen, das Skript ist also wiederholt
-ausführbar, ohne Duplikate zu erzeugen.
+- Artikel-Read paginiert explizit (.range()), weil Supabase/PostgREST
+  Selects standardmäßig auf 1000 Zeilen pro Query begrenzt (API-Setting
+  "Max Rows").
+- Bereits vorhandene Artikel (gleiche URL) werden NICHT neu angelegt,
+  aber ihre Label-Zuordnungen werden bei jedem Lauf aktualisiert (alte
+  article_label-Einträge gelöscht, aktuelle aus der privaten DB
+  nachgezogen) -- so übernimmt ein erneuter Lauf auch Label-Änderungen,
+  die du in ContextHub nachträglich an bereits kopierten Artikeln machst.
+- Labels (gleicher Name + label_type) werden übersprungen, keine
+  Duplikate bei wiederholten Läufen.
 
 Ausführen aus backend/app/:
     python seed_portfolio_full.py            # Vorschau (Dry-Run)
@@ -29,8 +27,8 @@ load_dotenv()
 
 PRIVATE_URL = os.environ["PRIVATE_SUPABASE_URL"]
 PRIVATE_KEY = os.environ["PRIVATE_SUPABASE_SERVICE_ROLE_KEY"]
-PORTFOLIO_URL = os.environ["SUPABASE_URL"]
-PORTFOLIO_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+PORTFOLIO_URL = os.environ["PORTFOLIO_SUPABASE_URL"]
+PORTFOLIO_KEY = os.environ["PORTFOLIO_SUPABASE_SERVICE_ROLE_KEY"]
 
 private = create_client(PRIVATE_URL, PRIVATE_KEY)
 portfolio = create_client(PORTFOLIO_URL, PORTFOLIO_KEY)
@@ -124,9 +122,48 @@ def fetch_all_articles_with_embedding():
     return articles
 
 
+def sync_labels_for_article(private_article_id: int, portfolio_article_id: int, id_map: dict[int, int]) -> bool:
+    """Vergleicht die Label-Zuordnungen eines bereits vorhandenen Portfolio-
+    Artikels mit dem aktuellen Stand aus der privaten DB. Nur bei
+    Abweichung wird tatsächlich gelöscht + neu eingefügt (teure Operation),
+    sonst passiert nichts. Gibt zurück, ob etwas geändert wurde."""
+    private_labels = (
+        private.table("article_label")
+        .select("label_id")
+        .eq("article_id", private_article_id)
+        .execute()
+        .data
+    )
+    # private label_ids -> portfolio label_ids umrechnen (Meta-Labels, die
+    # nicht in id_map sind, fallen dabei automatisch raus)
+    current_target_ids = {
+        id_map[row["label_id"]] for row in private_labels if row["label_id"] in id_map
+    }
+
+    existing_links = (
+        portfolio.table("article_label")
+        .select("label_id")
+        .eq("article_id", portfolio_article_id)
+        .execute()
+        .data
+    )
+    existing_ids = {row["label_id"] for row in existing_links}
+
+    if current_target_ids == existing_ids:
+        return False
+
+    portfolio.table("article_label").delete().eq("article_id", portfolio_article_id).execute()
+    for label_id in current_target_ids:
+        portfolio.table("article_label").insert(
+            {"article_id": portfolio_article_id, "label_id": label_id}
+        ).execute()
+    return True
+
+
 def seed_articles(id_map: dict[int, int], dry_run: bool):
     """Kopiert ALLE Artikel mit vorhandenem Embedding und ihre
-    Label-Zuordnungen -- keine Obergrenze mehr."""
+    Label-Zuordnungen. Bereits vorhandene Artikel werden nicht neu
+    angelegt, aber ihre Label-Zuordnungen werden aktualisiert."""
     print("\nLade Artikel aus privater DB (paginiert)...")
     articles = fetch_all_articles_with_embedding()
 
@@ -158,7 +195,8 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
 
     agency_cache: dict[str, int] = {}
     copied = 0
-    skipped = 0
+    labels_checked = 0
+    labels_changed = 0
 
     for article in articles:
         agency_name = article.get("agency") or "Unbekannt"
@@ -178,7 +216,14 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
             portfolio.table("articles").select("id").eq("url", article["url"]).execute()
         )
         if existing_article.data:
-            skipped += 1
+            # Artikel existiert schon -- nicht neu anlegen, Labels nur bei
+            # tatsächlicher Abweichung neu schreiben (Set-Vergleich statt
+            # blindem delete+insert bei allen vorhandenen Artikeln).
+            portfolio_article_id = existing_article.data[0]["id"]
+            changed = sync_labels_for_article(article["id"], portfolio_article_id, id_map)
+            labels_checked += 1
+            if changed:
+                labels_changed += 1
             continue
 
         created_article = (
@@ -197,6 +242,9 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
         )
         new_article_id = created_article.data[0]["id"]
 
+        # Label-Zuordnungen mitkopieren (nur die, deren Label auch in
+        # id_map ist, also Teil der Taxonomie ist, die wir gerade kopiert
+        # haben -- Meta-Labels werden dadurch automatisch uebersprungen)
         private_labels = (
             private.table("article_label")
             .select("label_id")
@@ -216,7 +264,8 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
         if copied % 100 == 0:
             print(f"  {copied} kopiert...")
 
-    print(f"\n{copied} Artikel neu kopiert, {skipped} bereits vorhanden (uebersprungen)")
+    print(f"\n{copied} Artikel neu kopiert")
+    print(f"{labels_checked} vorhandene Artikel geprüft, davon {labels_changed} mit geänderten Labels aktualisiert")
 
 
 def main():
