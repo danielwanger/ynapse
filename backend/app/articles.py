@@ -4,6 +4,26 @@ from db import supabase
 router = APIRouter(tags=["articles"])
 
 
+@router.get("/articles/search")
+def search_articles(q: str = Query(..., min_length=1, max_length=300), limit: int = Query(10, ge=1, le=50)):
+    """
+    Reine Text-Suche über Artikel-Titel (ILIKE, kein Embedding nötig).
+    Ergänzt die semantische Suche: wenn jemand den exakten Wortlaut eines
+    Titels eingibt, soll der Artikel zuverlässig oben auftauchen, statt
+    von der (bedeutungsbasierten, nicht wortlaut-treuen) semantischen
+    Suche eingeordnet zu werden.
+    """
+    result = (
+        supabase.table("articles")
+        .select("id, title, url, meta_description, published_at")
+        .ilike("title", f"%{q}%")
+        .order("published_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data
+
+
 @router.get("/articles/{article_id}")
 def get_article(article_id: int):
     """
