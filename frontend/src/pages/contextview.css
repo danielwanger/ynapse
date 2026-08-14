@@ -1,0 +1,146 @@
+.context-view {
+  color: #eee;
+}
+
+.context-article-header h1 {
+  margin-bottom: 0.6rem;
+  font-size: 1.6rem;
+  line-height: 1.3;
+}
+
+.context-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.meta-chip {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #333;
+  color: #999;
+}
+
+.context-description {
+  color: #aaa;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 0.8rem;
+  max-width: 65ch;
+}
+
+.article-url {
+  display: inline-block;
+  font-size: 0.85rem;
+  color: #d9824a;
+  text-decoration: none;
+  word-break: break-all;
+  margin-bottom: 2rem;
+}
+
+.article-url:hover {
+  text-decoration: underline;
+}
+
+.context-labels-block,
+.context-similar,
+.context-related {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #2a2a2a;
+}
+
+.context-labels-block h3,
+.context-similar h3,
+.context-related h3 {
+  margin-bottom: 1rem;
+  font-size: 1.05rem;
+  color: #ccc;
+}
+
+.context-labels-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.label-tag-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.label-tag {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #ccc;
+}
+
+.parent-tag {
+  color: #999;
+}
+
+.label-arrow {
+  color: #555;
+}
+
+.related-section {
+  margin-bottom: 1.5rem;
+}
+
+.related-section-title {
+  font-size: 0.95rem;
+  margin-bottom: 0.6rem;
+}
+
+.related-section-title a {
+  color: #d9824a;
+  text-decoration: none;
+}
+
+.related-section-title a:hover {
+  text-decoration: underline;
+}
+
+.related-articles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+}
+
+.related-article-card {
+  display: block;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #2a2a2a;
+  background: #161616;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease;
+}
+
+.related-article-card:hover {
+  border-color: #d9824a;
+}
+
+.related-article-title {
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  line-height: 1.35;
+}
+
+.related-article-meta {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.loading-hint {
+  font-size: 0.85rem;
+  color: #888;
+}

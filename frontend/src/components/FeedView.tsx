@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import MultiSelectFilter from "./MultiSelectFilter";
 import "./feedview.css";
@@ -183,13 +184,18 @@ export default function FeedView() {
         <>
           <div className="feed-cards">
             {articles.map((a) => (
-              <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer" className="feed-card">
+              <div key={a.id} className="feed-card">
                 <div className="feed-card-date">
                   {a.published_at ? new Date(a.published_at).toLocaleDateString("de-DE") : "Datum unbekannt"}
                 </div>
-                <div className="feed-card-title">{a.title}</div>
+                <a href={a.url} target="_blank" rel="noopener noreferrer" className="feed-card-title">
+                  {a.title}
+                </a>
                 {a.meta_description && <div className="feed-card-desc">{a.meta_description}</div>}
-              </a>
+                <Link to={`/articles/${a.id}/context`} className="feed-card-context-link">
+                  Kontext anzeigen →
+                </Link>
+              </div>
             ))}
           </div>
 
