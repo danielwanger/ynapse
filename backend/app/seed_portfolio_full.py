@@ -13,6 +13,10 @@ Ynapse-DB in die Portfolio-DB.
   die du in ContextHub nachträglich an bereits kopierten Artikeln machst.
 - Labels (gleicher Name + label_type) werden übersprungen, keine
   Duplikate bei wiederholten Läufen.
+- Parent-Beziehungen werden pro Kind mit dem aktuellen Stand aus der
+  privaten DB abgeglichen (Set-Vergleich) und bei Abweichung komplett
+  neu geschrieben -- so verschwinden veraltete Parent-Zuordnungen (z.B.
+  nach einer Taxonomie-Umstrukturierung in ContextHub) auch im Portfolio.
 
 Ausführen aus backend/app/:
     python seed_portfolio_full.py            # Vorschau (Dry-Run)
@@ -69,31 +73,41 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
             )
             id_map[row["id"]] = created.data[0]["id"]
 
-        seen_rels = set()
+        # Ziel-Stand der Beziehungen (aus privater DB) pro Kind sammeln,
+        # um veraltete Parent-Zuordnungen zu erkennen (z.B. wenn ein Label
+        # in ContextHub den Parent gewechselt hat).
+        target_rels_by_child: dict[int, set[int]] = {}
         for row in tree:
             if row["parent_id"] is None:
                 continue
-            key = (row["parent_id"], row["id"])
-            if key in seen_rels:
-                continue
-            seen_rels.add(key)
             new_parent = id_map.get(row["parent_id"])
             new_child = id_map.get(row["id"])
             if new_parent is None or new_child is None:
                 continue
+            target_rels_by_child.setdefault(new_child, set()).add(new_parent)
+
+        rels_updated = 0
+        for new_child, target_parents in target_rels_by_child.items():
             existing_rel = (
                 portfolio.table("label_relationships")
                 .select("parent_id")
-                .eq("parent_id", new_parent)
                 .eq("child_id", new_child)
                 .execute()
             )
-            if not existing_rel.data:
+            existing_parents = {row["parent_id"] for row in existing_rel.data}
+
+            if existing_parents == target_parents:
+                continue
+
+            portfolio.table("label_relationships").delete().eq("child_id", new_child).execute()
+            for parent_id in target_parents:
                 portfolio.table("label_relationships").insert(
-                    {"parent_id": new_parent, "child_id": new_child}
+                    {"parent_id": parent_id, "child_id": new_child}
                 ).execute()
+            rels_updated += 1
 
         print(f"  {label_type}: {len(id_map)} Labels total nach Kopiervorgang")
+        print(f"  {label_type}: {rels_updated} Labels mit geänderten Parent-Beziehungen aktualisiert")
 
     return id_map
 
