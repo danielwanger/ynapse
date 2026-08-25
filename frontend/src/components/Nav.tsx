@@ -9,6 +9,9 @@ export default function Nav() {
         Ynapse
       </Link>
       <div className="nav-links">
+        <NavLink to="/new" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+          Wochenschau
+        </NavLink>
         <NavLink to="/topics" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
           Themen
         </NavLink>
