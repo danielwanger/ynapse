@@ -15,7 +15,7 @@ def search_articles(q: str = Query(..., min_length=1, max_length=300), limit: in
     """
     result = (
         supabase.table("articles")
-        .select("id, title, url, meta_description, published_at")
+        .select("id, title, url, published_at")
         .ilike("title", f"%{q}%")
         .order("published_at", desc=True)
         .limit(limit)
@@ -31,7 +31,7 @@ def get_article(article_id: int):
     """
     article_res = (
         supabase.table("articles")
-        .select("id, title, url, meta_description, agency_id, published_at")
+        .select("id, title, url, agency_id, published_at")
         .eq("id", article_id)
         .single()
         .execute()
