@@ -89,8 +89,14 @@ function TreeItem({
         {/* Kinderanzahl (Taxonomie-Struktur) und Artikelanzahl (Inhalt) nebeneinander,
             damit man auf einen Blick sieht ob ein Knoten strukturell groß ODER inhaltlich befüllt ist. */}
         <span className="tree-counts">
-          {hasChildren && <span className="tree-count">{node.children.length}</span>}
-          <span className="tree-count tree-count-articles">{node.articleCount}</span>
+          {hasChildren && (
+            <span className="tree-count" title={`${node.children.length} Unterlabels`}>
+              {node.children.length} <span className="tree-count-label">Labels</span>
+            </span>
+          )}
+          <span className="tree-count tree-count-articles" title={`${node.articleCount} Artikel`}>
+            {node.articleCount} <span className="tree-count-label">Art.</span>
+          </span>
         </span>
       </div>
       {hasChildren && open && (

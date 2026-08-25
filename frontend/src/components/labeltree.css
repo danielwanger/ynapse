@@ -74,6 +74,12 @@
   background: #16211a;
 }
 
+.tree-count-label {
+  font-size: 0.65rem;
+  opacity: 0.65;
+  margin-left: 2px;
+}
+
 .tree-children {
   margin-top: 2px;
 }
