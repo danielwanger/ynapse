@@ -1,11 +1,15 @@
 """
 Einmaliges/wiederholbares Seeding-Skript: kopiert die komplette bereinigte
-Taxonomie (topic + country) und ALLE Artikel mit Embedding aus der privaten
-Ynapse-DB in die Portfolio-DB.
+Taxonomie (topic + country) und ALLE gelabelten Artikel mit Embedding aus
+der privaten Ynapse-DB in die Portfolio-DB.
 
 - Artikel-Read paginiert explizit (.range()), weil Supabase/PostgREST
   Selects standardmäßig auf 1000 Zeilen pro Query begrenzt (API-Setting
   "Max Rows").
+- Nur Artikel mit mindestens einem Label (article_label-Eintrag) werden
+  kopiert -- ungelabelte Artikel landen NICHT im Portfolio.
+- meta_description wird bewusst NICHT mitkopiert (Presse-Snippet-Risiko,
+  §87f-h UrhG / Art. 15 DSM-RL) -- weder gelesen noch geschrieben.
 - Bereits vorhandene Artikel (gleiche URL) werden NICHT neu angelegt,
   aber ihre Label-Zuordnungen werden bei jedem Lauf aktualisiert (alte
   article_label-Einträge gelöscht, aktuelle aus der privaten DB
@@ -114,14 +118,16 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
 
 def fetch_all_articles_with_embedding():
     """Holt ALLE Artikel mit Embedding aus der privaten DB, paginiert in
-    1000er-Bloecken (PostgREST-Default-Limit umgehen)."""
+    1000er-Bloecken (PostgREST-Default-Limit umgehen). meta_description
+    wird bewusst NICHT selektiert (Presse-Snippet-Risiko, soll nie in
+    die Portfolio-DB gelangen)."""
     PAGE_SIZE = 1000
     articles = []
     offset = 0
     while True:
         batch = (
             private.table("articles")
-            .select("id, title, url, meta_description, agency, published_at, embedding")
+            .select("id, title, url, agency, published_at, embedding")
             .not_.is_("embedding", "null")
             .order("id")
             .range(offset, offset + PAGE_SIZE - 1)
@@ -134,6 +140,28 @@ def fetch_all_articles_with_embedding():
             break
         offset += PAGE_SIZE
     return articles
+
+
+def fetch_labeled_article_ids() -> set[int]:
+    """Holt alle article_ids aus der privaten DB, die mindestens ein
+    Label haben (paginiert). Nur diese Artikel werden ins Portfolio
+    kopiert -- ungelabelte Artikel bleiben privat."""
+    PAGE_SIZE = 1000
+    labeled_ids: set[int] = set()
+    offset = 0
+    while True:
+        batch = (
+            private.table("article_label")
+            .select("article_id")
+            .range(offset, offset + PAGE_SIZE - 1)
+            .execute()
+            .data
+        )
+        labeled_ids.update(row["article_id"] for row in batch)
+        if len(batch) < PAGE_SIZE:
+            break
+        offset += PAGE_SIZE
+    return labeled_ids
 
 
 def sync_labels_for_article(private_article_id: int, portfolio_article_id: int, id_map: dict[int, int]) -> bool:
@@ -175,28 +203,33 @@ def sync_labels_for_article(private_article_id: int, portfolio_article_id: int, 
 
 
 def seed_articles(id_map: dict[int, int], dry_run: bool):
-    """Kopiert ALLE Artikel mit vorhandenem Embedding und ihre
+    """Kopiert alle gelabelten Artikel mit vorhandenem Embedding und ihre
     Label-Zuordnungen. Bereits vorhandene Artikel werden nicht neu
     angelegt, aber ihre Label-Zuordnungen werden aktualisiert."""
     print("\nLade Artikel aus privater DB (paginiert)...")
     articles = fetch_all_articles_with_embedding()
 
+    print("Lade gelabelte Artikel-IDs...")
+    labeled_ids = fetch_labeled_article_ids()
+
     # Nicht-öffentliche Einträge raus -- alles, was über manual:// angelegt
     # wurde (z. B. eigene Notizen statt echter News-Artikel), soll nicht
     # auf der öffentlichen Portfolio-Seite landen. Ausserdem: example.com-
-    # Platzhalter (Test-/Debug-Artikel) und Artikel ohne Titel (Scraper hat
-    # nichts gefunden, sehen als Feed-Karte kaputt aus).
+    # Platzhalter (Test-/Debug-Artikel), Artikel ohne Titel (Scraper hat
+    # nichts gefunden, sehen als Feed-Karte kaputt aus), und Artikel ganz
+    # ohne Label (sollen privat bleiben).
     before_filter = len(articles)
     articles = [
         a for a in articles
         if not a["url"].startswith("manual://")
         and "example.com" not in a["url"]
         and a.get("title")
+        and a["id"] in labeled_ids
     ]
     filtered_out = before_filter - len(articles)
 
     print(f"\n{before_filter} Artikel mit Embedding in privater DB gefunden")
-    print(f"{filtered_out} davon gefiltert (manual:// / example.com / ohne Titel), {len(articles)} bleiben übrig")
+    print(f"{filtered_out} davon gefiltert (manual:// / example.com / ohne Titel / ungelabelt), {len(articles)} bleiben übrig")
 
     if dry_run:
         preview_path = "seed_preview.txt"
@@ -246,7 +279,6 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
                 {
                     "title": article["title"],
                     "url": article["url"],
-                    "meta_description": article.get("meta_description"),
                     "agency_id": agency_cache[agency_name],
                     "published_at": article.get("published_at"),
                     "embedding": article["embedding"],
