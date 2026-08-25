@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException
 from db import supabase
+from retry_utils import with_retry
 
 router = APIRouter(tags=["hub"])
 
 
 @router.get("/labels/{label_id}/hub")
+@with_retry()
 def get_label_hub(label_id: int):
     """
     Metadaten für die Hub-Seite eines Labels: Name/Typ, direkte Eltern-

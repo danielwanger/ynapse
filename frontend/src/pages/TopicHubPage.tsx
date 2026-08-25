@@ -44,35 +44,61 @@ export default function TopicHubPage() {
   const [page, setPage] = useState(1);
   const [loadingArticles, setLoadingArticles] = useState(true);
 
+  // AbortController pro Effect-Durchlauf: verhindert, dass in React
+  // StrictMode (Dev-Modus feuert Effects zweimal) zwei fast gleichzeitige
+  // identische Requests dieselbe wiederverwendete HTTP/2-Connection im
+  // Supabase-Client-Pool treffen -- das fuehrte serverseitig gelegentlich
+  // zu "Server disconnected" (RemoteProtocolError) beim zweiten Request.
+  // Der erste (veraltete) Request wird hier sauber abgebrochen, bevor der
+  // zweite startet, statt beide parallel laufen zu lassen.
   useEffect(() => {
     if (!labelId) return;
+    const controller = new AbortController();
+
     setLoadingHub(true);
     setNotFound(false);
     setPage(1);
     api
-      .get<HubData>(`/labels/${labelId}/hub`)
+      .get<HubData>(`/labels/${labelId}/hub`, { signal: controller.signal })
       .then((r) => setHub(r.data))
-      .catch(() => setNotFound(true))
-      .finally(() => setLoadingHub(false));
+      .catch((err) => {
+        if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
+          setNotFound(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingHub(false);
+      });
+
+    return () => controller.abort();
   }, [labelId]);
 
   useEffect(() => {
     if (!hub) return;
+    const controller = new AbortController();
+
     setLoadingArticles(true);
     const paramKey = hub.label_type === "country" ? "country_ids" : "label_ids";
     api
       .get<FeedResponse>("/feed/", {
         params: { [paramKey]: [hub.id], page, page_size: PAGE_SIZE },
+        signal: controller.signal,
       })
       .then((r) => {
         setArticles(r.data.results);
         setTotal(r.data.total);
       })
-      .catch(() => {
-        setArticles([]);
-        setTotal(0);
+      .catch((err) => {
+        if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
+          setArticles([]);
+          setTotal(0);
+        }
       })
-      .finally(() => setLoadingArticles(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingArticles(false);
+      });
+
+    return () => controller.abort();
   }, [hub, page]);
 
   if (loadingHub) return <div className="page">Lade…</div>;

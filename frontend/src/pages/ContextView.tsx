@@ -55,32 +55,57 @@ export default function ContextView() {
 
   const [sections, setSections] = useState<LabelSection[]>([]);
 
-  // Artikel laden
+  // Artikel laden. AbortController verhindert, dass in React StrictMode
+  // (Dev-Modus feuert Effects zweimal) zwei fast gleichzeitige identische
+  // Requests dieselbe wiederverwendete HTTP/2-Connection im
+  // Supabase-Client-Pool treffen -- das fuehrte serverseitig gelegentlich
+  // zu "Server disconnected" (RemoteProtocolError) beim zweiten Request.
   useEffect(() => {
     if (!articleId) return;
+    const controller = new AbortController();
+
     setLoadingArticle(true);
     setNotFound(false);
     api
-      .get(`/articles/${articleId}`)
+      .get(`/articles/${articleId}`, { signal: controller.signal })
       .then((r) => setArticle(r.data))
-      .catch(() => setNotFound(true))
-      .finally(() => setLoadingArticle(false));
+      .catch((err) => {
+        if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
+          setNotFound(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingArticle(false);
+      });
+
+    return () => controller.abort();
   }, [articleId]);
 
   // Semantisch ähnliche Artikel (Embedding, aus vorhandenem Vektor)
   useEffect(() => {
     if (!articleId) return;
+    const controller = new AbortController();
+
     setLoadingSimilar(true);
     api
-      .get(`/articles/${articleId}/similar`, { params: { limit: 5 } })
+      .get(`/articles/${articleId}/similar`, { params: { limit: 5 }, signal: controller.signal })
       .then((r) => setSimilarArticles(r.data))
-      .catch(() => setSimilarArticles([]))
-      .finally(() => setLoadingSimilar(false));
+      .catch((err) => {
+        if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
+          setSimilarArticles([]);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingSimilar(false);
+      });
+
+    return () => controller.abort();
   }, [articleId]);
 
   // Verwandte Artikel nach manuellem Topic-Label, über den bestehenden /feed/ Endpoint
   useEffect(() => {
     if (!article) return;
+    const controller = new AbortController();
 
     const topicLabels = article.labels.filter((l) => l.label_type === "topic");
     setSections(topicLabels.map((label) => ({ label, articles: [], loading: true })));
@@ -89,6 +114,7 @@ export default function ContextView() {
       api
         .get<FeedResponse>("/feed/", {
           params: { label_ids: [label.id], page: 1, page_size: 6 },
+          signal: controller.signal,
         })
         .then((r) => {
           const articles = r.data.results.filter((a) => a.id !== Number(article.id));
@@ -96,12 +122,16 @@ export default function ContextView() {
             prev.map((s, i) => (i === idx ? { ...s, articles, loading: false } : s))
           );
         })
-        .catch(() => {
-          setSections((prev) =>
-            prev.map((s, i) => (i === idx ? { ...s, articles: [], loading: false } : s))
-          );
+        .catch((err) => {
+          if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
+            setSections((prev) =>
+              prev.map((s, i) => (i === idx ? { ...s, articles: [], loading: false } : s))
+            );
+          }
         });
     });
+
+    return () => controller.abort();
   }, [article]);
 
   if (loadingArticle) return <div className="page context-view">Lade Artikel…</div>;

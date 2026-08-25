@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException, Query
 from db import supabase
+from retry_utils import with_retry
 
 router = APIRouter(tags=["articles"])
 
 
 @router.get("/articles/search")
+@with_retry()
 def search_articles(q: str = Query(..., min_length=1, max_length=300), limit: int = Query(10, ge=1, le=50)):
     """
     Reine Text-Suche über Artikel-Titel (ILIKE, kein Embedding nötig).
@@ -25,6 +27,7 @@ def search_articles(q: str = Query(..., min_length=1, max_length=300), limit: in
 
 
 @router.get("/articles/{article_id}")
+@with_retry()
 def get_article(article_id: int):
     """
     Artikel-Detail inkl. Agency-Name und verknüpfter Labels.
@@ -79,6 +82,7 @@ def get_article(article_id: int):
 
 
 @router.get("/articles/{article_id}/similar")
+@with_retry()
 def similar_articles(article_id: int, limit: int = Query(5, ge=1, le=20)):
     """
     Semantisch ähnliche Artikel über die Embedding-Spalte des Artikels selbst.

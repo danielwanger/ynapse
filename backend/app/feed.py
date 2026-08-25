@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query
+from httpx import RemoteProtocolError
 from db import supabase
+from retry_utils import with_retry
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
 
 @router.get("/")
+@with_retry()
 def get_feed(
     agency_id: int | None = None,
     label_ids: list[int] | None = Query(default=None),
@@ -32,11 +35,16 @@ def get_feed(
             },
         ).execute()
         return result.data
+    except RemoteProtocolError:
+        # nicht hier abfangen -- soll bis zum @with_retry-Decorator
+        # durchgereicht werden, damit ein Retry stattfinden kann
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/agencies")
+@with_retry()
 def get_agencies():
     result = supabase.table("agencies").select("*").order("name").execute()
     return result.data

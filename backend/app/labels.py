@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException
+from httpx import RemoteProtocolError
 from db import supabase
+from retry_utils import with_retry
 
 router = APIRouter(prefix="/labels", tags=["labels"])
 
@@ -57,6 +59,7 @@ $$;
 
 
 @router.get("/")
+@with_retry()
 def get_labels(label_type: str | None = None):
     """
     Liefert die komplette Taxonomie als flache Liste mit depth/path/article_count,
@@ -68,11 +71,16 @@ def get_labels(label_type: str | None = None):
             "label_tree", {"filter_label_type": label_type}
         ).execute()
         return result.data
+    except RemoteProtocolError:
+        # nicht hier abfangen -- soll bis zum @with_retry-Decorator
+        # durchgereicht werden, damit ein Retry stattfinden kann
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{label_id}")
+@with_retry()
 def get_label(label_id: int):
     result = supabase.table("labels").select("*").eq("id", label_id).execute()
     if not result.data:
