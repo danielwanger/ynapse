@@ -10,11 +10,13 @@ interface LabelNode {
   parent_id: number | null;
   depth: number;
   path: number[];
+  article_count: number; // NEU: Anzahl direkt zugeordneter Artikel, muss vom Backend geliefert werden
 }
 
 interface TreeNode {
   id: number;
   name: string;
+  articleCount: number; // NEU
   children: TreeNode[];
 }
 
@@ -28,7 +30,7 @@ function buildTree(flat: LabelNode[]): TreeNode[] {
 
   for (const l of flat) {
     if (!nodeMap.has(l.id)) {
-      nodeMap.set(l.id, { id: l.id, name: l.name, children: [] });
+      nodeMap.set(l.id, { id: l.id, name: l.name, articleCount: l.article_count ?? 0, children: [] });
     }
   }
 
@@ -84,7 +86,12 @@ function TreeItem({
         >
           {node.name}
         </span>
-        {hasChildren && <span className="tree-count">{node.children.length}</span>}
+        {/* Kinderanzahl (Taxonomie-Struktur) und Artikelanzahl (Inhalt) nebeneinander,
+            damit man auf einen Blick sieht ob ein Knoten strukturell groß ODER inhaltlich befüllt ist. */}
+        <span className="tree-counts">
+          {hasChildren && <span className="tree-count">{node.children.length}</span>}
+          <span className="tree-count tree-count-articles">{node.articleCount}</span>
+        </span>
       </div>
       {hasChildren && open && (
         <div className="tree-children">
