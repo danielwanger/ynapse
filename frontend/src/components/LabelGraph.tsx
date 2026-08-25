@@ -10,6 +10,7 @@ interface LabelNode {
   parent_id: number | null;
   depth: number;
   path: number[];
+  article_count: number; // NEU: Anzahl direkt zugeordneter Artikel, muss vom Backend geliefert werden
 }
 
 interface GraphNode extends d3.SimulationNodeDatum {
@@ -18,6 +19,7 @@ interface GraphNode extends d3.SimulationNodeDatum {
   label_type: string;
   depth: number;
   reach: number;
+  articleCount: number; // NEU
   isCore: boolean;
   isHub: boolean;
 }
@@ -142,6 +144,7 @@ export default function LabelGraph({ labelType, initialSelectedId }: LabelGraphP
           label_type: l.label_type,
           depth: l.depth,
           reach: reachOf(l.id),
+          articleCount: l.article_count ?? 0, // NEU
           isCore: false,
           isHub: false,
         });
@@ -246,7 +249,8 @@ export default function LabelGraph({ labelType, initialSelectedId }: LabelGraphP
       .style("cursor", "pointer")
       .call(drag(simulation));
 
-    node.append("title").text((d) => `${d.name} (Reach: ${d.reach})`);
+    // Tooltip: Reach (Kinder+Vorfahren) und Artikelanzahl getrennt ausgewiesen
+    node.append("title").text((d) => `${d.name}\nReach: ${d.reach}\nArtikel: ${d.articleCount}`);
 
     node.on("click", (_event, d) => {
       const match = allLabels.find((l) => l.id === d.id);
@@ -258,7 +262,14 @@ export default function LabelGraph({ labelType, initialSelectedId }: LabelGraphP
       .selectAll("text")
       .data(nodes)
       .join("text")
-      .text((d) => (d.isCore ? `${d.name} (${d.reach})` : d.name))
+      .text((d) => {
+        // Reach = Kinder/Vorfahren im Taxonomiebaum, Artikel = zugeordnete Artikel.
+        // Beide Zahlen direkt am Label, damit man auf einen Blick sieht,
+        // ob ein Hub strukturell groß ODER inhaltlich befüllt ist.
+        if (d.isCore) return `${d.name} (${d.reach} · ${d.articleCount} Art.)`;
+        if (d.isHub) return `${d.name} (${d.articleCount} Art.)`;
+        return d.name;
+      })
       .attr("font-size", (d) => (d.isCore ? 14 : 12))
       .attr("font-weight", (d) => (d.isCore || d.isHub ? "bold" : "normal"))
       .attr("fill", (d) => (d.isHub && !d.isCore ? "#f2c14e" : "#fff"))
