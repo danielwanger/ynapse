@@ -8,7 +8,6 @@ interface FeedArticle {
   id: number;
   title: string;
   url: string;
-  meta_description: string | null;
   agency_id: number | null;
   published_at: string | null;
 }
@@ -224,7 +223,6 @@ export default function FeedView() {
                 <a href={a.url} target="_blank" rel="noopener noreferrer" className="feed-card-title">
                   {a.title}
                 </a>
-                {a.meta_description && <div className="feed-card-desc">{a.meta_description}</div>}
                 <Link to={`/articles/${a.id}/context`} className="feed-card-context-link">
                   Kontext anzeigen →
                 </Link>

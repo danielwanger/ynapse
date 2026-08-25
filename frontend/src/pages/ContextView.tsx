@@ -14,7 +14,6 @@ interface Article {
   id: number;
   title: string | null;
   url: string;
-  meta_description: string | null;
   agency: string | null;
   published_at: string | null;
   labels: Label[];
@@ -24,7 +23,6 @@ interface SimilarArticle {
   id: number;
   title: string | null;
   url: string;
-  meta_description: string | null;
   similarity: number;
 }
 
@@ -32,7 +30,6 @@ interface FeedArticle {
   id: number;
   title: string;
   url: string;
-  meta_description: string | null;
   published_at: string | null;
 }
 
@@ -123,9 +120,6 @@ export default function ContextView() {
             </span>
           )}
         </div>
-        {article.meta_description && (
-          <p className="context-description">{article.meta_description}</p>
-        )}
         <a href={article.url} target="_blank" rel="noopener noreferrer" className="article-url">
           {article.url}
         </a>
