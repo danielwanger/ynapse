@@ -1,3 +1,4 @@
+// TopicHubPage.tsx
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../api";
@@ -21,7 +22,6 @@ interface FeedArticle {
   id: number;
   title: string;
   url: string;
-  meta_description: string | null;
   published_at: string | null;
 }
 
@@ -44,13 +44,6 @@ export default function TopicHubPage() {
   const [page, setPage] = useState(1);
   const [loadingArticles, setLoadingArticles] = useState(true);
 
-  // AbortController pro Effect-Durchlauf: verhindert, dass in React
-  // StrictMode (Dev-Modus feuert Effects zweimal) zwei fast gleichzeitige
-  // identische Requests dieselbe wiederverwendete HTTP/2-Connection im
-  // Supabase-Client-Pool treffen -- das fuehrte serverseitig gelegentlich
-  // zu "Server disconnected" (RemoteProtocolError) beim zweiten Request.
-  // Der erste (veraltete) Request wird hier sauber abgebrochen, bevor der
-  // zweite startet, statt beide parallel laufen zu lassen.
   useEffect(() => {
     if (!labelId) return;
     const controller = new AbortController();
@@ -167,9 +160,6 @@ export default function TopicHubPage() {
                   <a href={a.url} target="_blank" rel="noopener noreferrer" className="hub-article-title">
                     {a.title}
                   </a>
-                  {a.meta_description && (
-                    <div className="hub-article-desc">{a.meta_description}</div>
-                  )}
                   <Link to={`/articles/${a.id}/context`} className="hub-article-context-link">
                     Kontext anzeigen →
                   </Link>

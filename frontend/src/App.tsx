@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import Nav from "./components/Nav";
+import Footer from "./components/Footer";
 import SearchPage from "./pages/SearchPage";
 import TaxonomyPage from "./pages/TaxonomyPage";
 import TopicHubPage from "./pages/TopicHubPage";
@@ -21,6 +22,7 @@ function App() {
         <Route path="/graph" element={<GraphPage />} />
         <Route path="/articles/:articleId/context" element={<ContextView />} />
       </Routes>
+      <Footer />
     </div>
   );
 }
