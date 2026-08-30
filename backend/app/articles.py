@@ -8,22 +8,29 @@ router = APIRouter(tags=["articles"])
 @router.get("/articles/search")
 @with_retry()
 def search_articles(q: str = Query(..., min_length=1, max_length=300), limit: int = Query(10, ge=1, le=50)):
-    """
-    Reine Text-Suche über Artikel-Titel (ILIKE, kein Embedding nötig).
-    Ergänzt die semantische Suche: wenn jemand den exakten Wortlaut eines
-    Titels eingibt, soll der Artikel zuverlässig oben auftauchen, statt
-    von der (bedeutungsbasierten, nicht wortlaut-treuen) semantischen
-    Suche eingeordnet zu werden.
-    """
     result = (
         supabase.table("articles")
         .select("id, title, url, published_at")
         .ilike("title", f"%{q}%")
+        .not_.is_("published_at", "null")
         .order("published_at", desc=True)
         .limit(limit)
         .execute()
     )
-    return result.data
+    # Sensitivitäts-Filter nachträglich in Python, da Supabase-Client
+    # kein "not exists auf verknüpfter Tabelle" direkt unterstützt
+    ids = [a["id"] for a in result.data]
+    if not ids:
+        return result.data
+    sensitive_links = (
+        supabase.table("article_label")
+        .select("article_id, labels!inner(is_sensitive)")
+        .in_("article_id", ids)
+        .eq("labels.is_sensitive", True)
+        .execute()
+    )
+    sensitive_ids = {row["article_id"] for row in sensitive_links.data}
+    return [a for a in result.data if a["id"] not in sensitive_ids]
 
 
 @router.get("/articles/{article_id}")

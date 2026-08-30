@@ -14,13 +14,11 @@ PRIVATE_INSTANCE_TOKEN = os.environ.get("PRIVATE_INSTANCE_TOKEN")  # falls die i
 
 @router.get("/labels/search")
 def search_labels(q: str = Query(..., min_length=1, max_length=100)):
-    """
-    Reine Text-Suche über Label-Namen (kein Embedding nötig).
-    """
     result = (
         supabase.table("labels")
         .select("id, name, label_type")
         .ilike("name", f"%{q}%")
+        .eq("is_sensitive", False)
         .order("name")
         .limit(20)
         .execute()

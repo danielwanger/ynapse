@@ -8,15 +8,9 @@ router = APIRouter(tags=["hub"])
 @router.get("/labels/{label_id}/hub")
 @with_retry()
 def get_label_hub(label_id: int):
-    """
-    Metadaten für die Hub-Seite eines Labels: Name/Typ, direkte Eltern-
-    und Kind-Labels aus der Taxonomie (für Breadcrumb + Unterthemen-Liste),
-    plus Artikel-Anzahl. Der eigentliche Artikel-Feed wird separat über
-    /feed/ geladen (gleiche Filterlogik wie überall sonst).
-    """
     label_res = (
         supabase.table("labels")
-        .select("id, name, label_type")
+        .select("id, name, label_type, is_sensitive")
         .eq("id", label_id)
         .single()
         .execute()
@@ -40,6 +34,7 @@ def get_label_hub(label_id: int):
             supabase.table("labels")
             .select("id, name")
             .in_("id", parent_ids)
+            .eq("is_sensitive", False)  # sensible Eltern-Labels nicht in Breadcrumb zeigen
             .execute()
             .data
         )
@@ -58,19 +53,21 @@ def get_label_hub(label_id: int):
             supabase.table("labels")
             .select("id, name")
             .in_("id", child_ids)
+            .eq("is_sensitive", False)  # sensible Unterthemen nicht auflisten
             .order("name")
             .execute()
             .data
         )
 
-    link_count = (
-        supabase.table("article_label")
-        .select("article_id", count="exact")
-        .eq("label_id", label_id)
-        .execute()
-    )
-
+    # Artikel-Zaehlung: nur datierte Artikel zaehlen, die NICHT ueber ein
+    # sensibles Label verknuepft sind -- muss mit dem Filter in
+    # feed_articles()/match_articles()/trending_topics() konsistent sein,
+    # sonst zeigt der Zaehler oben eine andere Zahl als die Artikelliste
+    # unten (die ueber /feed/ laeuft).
+    count_res = supabase.rpc(
+        "count_visible_articles_for_label", {"p_label_id": label_id}
+    ).execute()
     label["parents"] = parents
     label["children"] = children
-    label["article_count"] = link_count.count or 0
+    label["article_count"] = count_res.data if isinstance(count_res.data, int) else 0
     return label
