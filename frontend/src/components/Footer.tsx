@@ -1,4 +1,3 @@
-// components/Footer.tsx
 import "./footer.css";
 
 export default function Footer() {
@@ -6,11 +5,7 @@ export default function Footer() {
     <footer className="site-footer">
       <span>
         Semantische Suche powered by{" "}
-        
-          href="https://huggingface.co/intfloat/multilingual-e5-large"
-          target="_blank"
-          rel="noopener noreferrer"
-        <a>
+        <a href="https://huggingface.co/intfloat/multilingual-e5-large" target="_blank" rel="noopener noreferrer">
           multilingual-e5-large
         </a>{" "}
         · Cosine Similarity · pgvector (Supabase/Postgres)
