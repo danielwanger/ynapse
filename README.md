@@ -7,7 +7,7 @@ Diese Version ist eine reduzierte, öffentliche Portfolio-Instanz - das vollstä
 ## Was hier läuft
 
 - **Semantische Suche** - Artikel werden über Embedding-Ähnlichkeit (Cosine Similarity) gefunden, nicht nur über exakte Wortübereinstimmung
-- **Wochenschau** - die aktivsten Themen der letzten 7 Tage nach Artikel-Anzahl, mit Artikel-Vorschau pro Thema
+- **Wochenschau** - die aktivsten Themen der letzten Wochen nach Artikel-Anzahl, aufgeteilt nach Kalenderwoche, mit Artikel-Vorschau pro Thema
 - **Label-Suche** über die Themen-/Länder-Taxonomie
 - **Labelgraph** - interaktive Visualisierung der Taxonomie als Force-Directed Graph (D3.js), Knotengröße nach struktureller Zentralität
 - **Feed** mit Filtern nach Agentur, Thema, Land, Datum und Ausschluss-Filter
