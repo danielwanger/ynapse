@@ -45,4 +45,4 @@ Die öffentliche Instanz filtert bewusst tagespolitisch kontroverse und stark pa
 
 ## Roadmap
 
-Der eigentliche Pipeline-Code (Scraping, Embedding-Berechnung) ist noch nicht Teil dieses Repos -- das ist der nächste geplante Ausbauschritt, sobald die private Pipeline weiter stabilisiert ist. Bis dahin dient dieses Repo als Beleg für das Retrieval-System, das auf diesen Daten aufbaut.
+Der eigentliche Pipeline-Code (Scraping, Embedding-Berechnung) ist noch nicht Teil dieses Repos - das ist der nächste geplante Ausbauschritt, sobald die private Pipeline weiter stabilisiert ist. Bis dahin dient dieses Repo als Beleg für das Retrieval-System, das auf diesen Daten aufbaut.
