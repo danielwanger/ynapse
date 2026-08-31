@@ -133,7 +133,7 @@ export default function SearchPage() {
         <input
           type="text"
           autoFocus
-          placeholder="z.B. Klimapolitik, Bundestag, Anthropic..."
+          placeholder="z.B. Artificial intelligence, Pension system, Heat wave..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
