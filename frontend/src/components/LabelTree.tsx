@@ -10,7 +10,7 @@ interface LabelNode {
   parent_id: number | null;
   depth: number;
   path: number[];
-  article_count: number; // NEU: Anzahl direkt zugeordneter Artikel, muss vom Backend geliefert werden
+  article_count: number; 
 }
 
 interface TreeNode {

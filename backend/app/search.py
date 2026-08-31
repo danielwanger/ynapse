@@ -2,6 +2,7 @@ import os
 from fastapi import APIRouter, HTTPException, Query
 import httpx
 from db import supabase
+from retry_utils import with_retry
 
 router = APIRouter(tags=["search"])
 
@@ -13,6 +14,7 @@ PRIVATE_INSTANCE_TOKEN = os.environ.get("PRIVATE_INSTANCE_TOKEN")  # falls die i
 
 
 @router.get("/labels/search")
+@with_retry()
 def search_labels(q: str = Query(..., min_length=1, max_length=100)):
     result = (
         supabase.table("labels")
@@ -27,6 +29,7 @@ def search_labels(q: str = Query(..., min_length=1, max_length=100)):
 
 
 @router.get("/embeddings/search")
+@with_retry()
 async def semantic_search(q: str = Query(..., min_length=1, max_length=300), limit: int = 10):
     """
     Semantische Suche: Query-Embedding wird von der privaten Instanz berechnet
