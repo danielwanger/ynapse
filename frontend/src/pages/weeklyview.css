@@ -3,6 +3,42 @@
   padding: 1rem 0;
 }
 
+.weekly-week-section {
+  max-width: 720px;
+  margin-bottom: 1.5rem;
+}
+
+.weekly-week-heading-wrap {
+  margin: 0 0 0.6rem 0;
+}
+
+.weekly-week-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  color: #eee;
+}
+
+.weekly-week-heading:hover {
+  color: #d9824a;
+}
+
+.weekly-week-chevron {
+  transition: transform 0.15s ease;
+  color: #999;
+}
+
+.weekly-week-chevron.expanded {
+  transform: rotate(180deg);
+}
+
 .weekly-topics-list {
   display: flex;
   flex-direction: column;
@@ -54,19 +90,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.weekly-topic-bar-track {
-  height: 4px;
-  border-radius: 2px;
-  background: #262626;
-  overflow: hidden;
-}
-
-.weekly-topic-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: #d9824a;
 }
 
 .weekly-topic-count {
