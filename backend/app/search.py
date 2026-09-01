@@ -6,11 +6,8 @@ from retry_utils import with_retry
 
 router = APIRouter(tags=["search"])
 
-# URL der privaten Ynapse-Instanz, die das Embedding-Modell hält.
-# Das Portfolio-Backend berechnet keine Embeddings selbst (siehe Architektur-
-# entscheidung: geteiltes Modell statt Duplizierung).
 PRIVATE_INSTANCE_URL = os.environ["PRIVATE_INSTANCE_URL"]
-PRIVATE_INSTANCE_TOKEN = os.environ.get("PRIVATE_INSTANCE_TOKEN")  # falls die interne Route abgesichert ist
+PRIVATE_INSTANCE_TOKEN = os.environ.get("PRIVATE_INSTANCE_TOKEN")
 
 
 @router.get("/labels/search")
@@ -29,7 +26,6 @@ def search_labels(q: str = Query(..., min_length=1, max_length=100)):
 
 
 @router.get("/embeddings/search")
-@with_retry()
 async def semantic_search(q: str = Query(..., min_length=1, max_length=300), limit: int = 10):
     """
     Semantische Suche: Query-Embedding wird von der privaten Instanz berechnet
