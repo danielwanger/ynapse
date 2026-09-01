@@ -21,6 +21,15 @@ der privaten Ynapse-DB in die Portfolio-DB.
   privaten DB abgeglichen (Set-Vergleich) und bei Abweichung komplett
   neu geschrieben -- so verschwinden veraltete Parent-Zuordnungen (z.B.
   nach einer Taxonomie-Umstrukturierung in ContextHub) auch im Portfolio.
+- NEU: Artikel, die in der privaten DB ALLE Labels verloren haben (z.B.
+  weil ihr einziges Label geloescht/entkoppelt wurde), werden separat
+  behandelt: sie fallen aus der normalen "gelabelte Artikel"-Iteration
+  raus (fetch_labeled_article_ids() enthaelt sie nicht mehr), wuerden
+  ohne diesen Zusatzschritt aber ihre alten, jetzt veralteten
+  Portfolio-Label-Verknuepfungen unveraendert behalten. Der neue Schritt
+  clear_labels_for_delisted_articles() raeumt genau diesen Fall auf,
+  indem er fuer bereits im Portfolio vorhandene Artikel, die NICHT mehr
+  in labeled_ids sind, deren article_label-Eintraege im Portfolio leert.
 
 Ausführen aus backend/app/:
     python seed_portfolio_full.py            # Vorschau (Dry-Run)
@@ -202,6 +211,104 @@ def sync_labels_for_article(private_article_id: int, portfolio_article_id: int, 
     return True
 
 
+def fetch_portfolio_url_to_id_map() -> dict[str, int]:
+    """Holt alle (url -> id) Paare aus der Portfolio-DB, paginiert.
+    Wird gebraucht, um Portfolio-Artikel zu finden, die im aktuellen
+    Lauf NICHT ueber labeled_ids erreicht werden (weil sie privat alle
+    Labels verloren haben), aber im Portfolio noch existieren."""
+    PAGE_SIZE = 1000
+    url_to_id: dict[str, int] = {}
+    offset = 0
+    while True:
+        batch = (
+            portfolio.table("articles")
+            .select("id, url")
+            .range(offset, offset + PAGE_SIZE - 1)
+            .execute()
+            .data
+        )
+        for row in batch:
+            url_to_id[row["url"]] = row["id"]
+        if len(batch) < PAGE_SIZE:
+            break
+        offset += PAGE_SIZE
+    return url_to_id
+
+
+def clear_labels_for_delisted_articles(
+    all_private_articles: list[dict],
+    labeled_ids: set[int],
+    dry_run: bool,
+) -> int:
+    """Kernfix: Artikel, die in der privaten DB frueher gelabelt waren,
+    jetzt aber KEIN Label mehr haben (z.B. weil ihr einziges Label
+    geloescht/entkoppelt wurde), fallen aus der normalen
+    "gelabelte Artikel"-Iteration in seed_articles() komplett raus --
+    dort wird nur ueber Artikel iteriert, die AKTUELL in labeled_ids
+    sind. Ohne diesen Zusatzschritt behalten sie im Portfolio also ihre
+    alten, jetzt veralteten Label-Verknuepfungen fuer immer, unabhaengig
+    davon wie oft das Skript erneut laeuft.
+
+    Hier werden deshalb explizit alle privaten Artikel OHNE Embedding-
+    Filter durchsucht (auch Artikel ohne embedding koennen betroffen
+    sein, falls sie frueher schon einmal geseedet wurden), auf
+    "aktuell privat ungelabelt" geprueft, und falls sie im Portfolio
+    per URL gefunden werden, dort leergeraeumt."""
+    now_unlabeled = [a for a in all_private_articles if a["id"] not in labeled_ids]
+    if not now_unlabeled:
+        print("\nKeine Artikel privat komplett entlabelt -- nichts aufzuräumen.")
+        return 0
+
+    print(f"\n{len(now_unlabeled)} Artikel sind in der privaten DB jetzt komplett ohne Label.")
+
+    # Auch im Dry-Run schon die echten Portfolio-Treffer zaehlen (nur
+    # lesend: url_to_portfolio_id + article_label-select), damit die
+    # Vorschau nicht nur die rohe, oft viel zu hohe private Zahl zeigt,
+    # sondern die tatsaechlich betroffene Teilmenge im Portfolio.
+    url_to_portfolio_id = fetch_portfolio_url_to_id_map()
+    would_affect = 0
+    for article in now_unlabeled:
+        portfolio_id = url_to_portfolio_id.get(article["url"])
+        if portfolio_id is None:
+            continue
+        existing_links = (
+            portfolio.table("article_label")
+            .select("label_id")
+            .eq("article_id", portfolio_id)
+            .execute()
+            .data
+        )
+        if existing_links:
+            would_affect += 1
+
+    if dry_run:
+        print(f"  Davon existieren {would_affect} im Portfolio noch mit alten Label-Verknuepfungen.")
+        print("  [DRY RUN] wuerde diese leeren.")
+        return 0
+
+    cleared = 0
+    for article in now_unlabeled:
+        portfolio_id = url_to_portfolio_id.get(article["url"])
+        if portfolio_id is None:
+            continue  # nie geseedet, nichts zu tun
+
+        existing_links = (
+            portfolio.table("article_label")
+            .select("label_id")
+            .eq("article_id", portfolio_id)
+            .execute()
+            .data
+        )
+        if not existing_links:
+            continue  # im Portfolio ohnehin schon leer
+
+        portfolio.table("article_label").delete().eq("article_id", portfolio_id).execute()
+        cleared += 1
+
+    print(f"  {cleared} Portfolio-Artikel hatten noch veraltete Label-Verknuepfungen und wurden geleert.")
+    return cleared
+
+
 def seed_articles(id_map: dict[int, int], dry_run: bool):
     """Kopiert alle gelabelten Artikel mit vorhandenem Embedding und ihre
     Label-Zuordnungen. Bereits vorhandene Artikel werden nicht neu
@@ -211,6 +318,12 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
 
     print("Lade gelabelte Artikel-IDs...")
     labeled_ids = fetch_labeled_article_ids()
+
+    # NEU: bevor gefiltert wird, zuerst die Aufraeum-Prüfung für Artikel
+    # anstoßen, die privat komplett entlabelt wurden -- muss auf der
+    # UNGEFILTERTEN Liste passieren, da sonst genau die Artikel, die wir
+    # aufräumen wollen, schon vorher rausfallen wuerden.
+    clear_labels_for_delisted_articles(articles, labeled_ids, dry_run)
 
     # Nicht-öffentliche Einträge raus -- alles, was über manual:// angelegt
     # wurde (z. B. eigene Notizen statt echter News-Artikel), soll nicht
