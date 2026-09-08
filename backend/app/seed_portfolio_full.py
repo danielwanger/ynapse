@@ -427,6 +427,57 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
     print(f"{labels_checked} vorhandene Artikel geprüft, davon {labels_changed} mit geänderten Labels aktualisiert")
 
 
+def seed_label_resources(id_map: dict[int, int], dry_run: bool):
+    """Kopiert label_resources aus der privaten DB, mit id-Remapping
+    ueber dasselbe id_map wie Labels/Artikel. Volles Replace pro Lauf
+    (kleine, rein manuell kuratierte Tabelle, kein Risiko wie bei
+    Artikeln/Taxonomie).
+
+    Hinweis: id_map ist im Dry-Run leer, weil seed_labels() im Dry-Run
+    frueh abbricht (vor dem eigentlichen Aufbau von id_map). Die
+    Dry-Run-Vorschau dieser Funktion zeigt deshalb faelschlich "alles
+    uebersprungen" -- kein Bug hier, sondern bestehendes Verhalten des
+    Scripts, das sich auf diesen Schritt uebertraegt."""
+    print("\nLade label_resources aus privater DB...")
+    resources = (
+        private.table("label_resources")
+        .select("label_id, url, title, description, resource_type, sort_order")
+        .execute()
+        .data
+    )
+    print(f"{len(resources)} label_resources in privater DB gefunden")
+
+    # nur Ressourcen, deren Label auch tatsaechlich Teil der kopierten
+    # Taxonomie ist (id_map) -- sonst wuerde eine FK-Verletzung drohen
+    mapped = []
+    skipped = 0
+    for r in resources:
+        portfolio_label_id = id_map.get(r["label_id"])
+        if portfolio_label_id is None:
+            skipped += 1
+            continue
+        mapped.append({**r, "label_id": portfolio_label_id})
+
+    print(f"{len(mapped)} davon mit Label in aktueller Portfolio-Taxonomie, {skipped} uebersprungen (Label nicht im Portfolio)")
+
+    if dry_run:
+        print("  [DRY RUN] wuerde label_resources in Portfolio-DB komplett ersetzen")
+        return
+
+    portfolio.table("label_resources").delete().neq("id", 0).execute()
+    for r in mapped:
+        portfolio.table("label_resources").insert({
+            "label_id": r["label_id"],
+            "url": r["url"],
+            "title": r["title"],
+            "description": r.get("description"),
+            "resource_type": r["resource_type"],
+            "sort_order": r.get("sort_order", 0),
+        }).execute()
+
+    print(f"  {len(mapped)} label_resources in Portfolio-DB geschrieben")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true")
@@ -440,6 +491,7 @@ def main():
 
     id_map = seed_labels(dry_run)
     seed_articles(id_map, dry_run)
+    seed_label_resources(id_map, dry_run)
 
     print("\nFertig." if not dry_run else "\nVorschau abgeschlossen.")
 

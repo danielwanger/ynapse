@@ -10,6 +10,7 @@ from search import router as search_router
 from articles import router as article_router
 from hub import router as hub_router
 from trending import router as trending_router
+from label_resources import router as label_resources_router
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -38,6 +39,7 @@ app.include_router(feed_router)
 app.include_router(article_router)
 app.include_router(hub_router)
 app.include_router(trending_router)
+app.include_router(label_resources_router)
 
 
 @app.get("/health")
