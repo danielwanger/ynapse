@@ -2,7 +2,17 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../api";
+import { LabelResources } from "./LabelResources";
 import "./topichub.css";
+
+type ResourceType = "wikipedia" | "organization" | "tool" | "general";
+
+interface LabelResource {
+  url: string;
+  title: string;
+  description?: string;
+  resource_type: ResourceType;
+}
 
 interface LabelRef {
   id: number;
@@ -43,6 +53,8 @@ export default function TopicHubPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loadingArticles, setLoadingArticles] = useState(true);
+
+  const [resources, setResources] = useState<LabelResource[]>([]);
 
   useEffect(() => {
     if (!labelId) return;
@@ -94,6 +106,22 @@ export default function TopicHubPage() {
     return () => controller.abort();
   }, [hub, page]);
 
+  useEffect(() => {
+    if (!hub) return;
+    const controller = new AbortController();
+
+    api
+      .get<LabelResource[]>(`/labels/${hub.id}/resources`, { signal: controller.signal })
+      .then((r) => setResources(r.data))
+      .catch((err) => {
+        if (err.name !== "CanceledError" && err.code !== "ERR_CANCELED") {
+          setResources([]);
+        }
+      });
+
+    return () => controller.abort();
+  }, [hub]);
+
   if (loadingHub) return <div className="page">Lade…</div>;
   if (notFound || !hub) return <div className="page">Label nicht gefunden.</div>;
 
@@ -127,6 +155,8 @@ export default function TopicHubPage() {
           Graph anzeigen →
         </Link>
       </div>
+
+      <LabelResources resources={resources} />
 
       {hub.children.length > 0 && (
         <div className="hub-section">
