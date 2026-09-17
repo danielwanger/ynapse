@@ -74,6 +74,14 @@
   background: #16211a;
 }
 
+/* NEU: kumulierte Gesamtanzahl (Label + alle Unterlabels). Blauton statt
+   des Gruens der direkten Artikelzahl, damit "direkt" und "gesamt" auf
+   einen Blick unterscheidbar sind, aber im selben Pill-Stil bleiben. */
+.tree-count-total {
+  color: #7fa0c9;
+  background: #161e29;
+}
+
 .tree-count-label {
   font-size: 0.65rem;
   opacity: 0.65;

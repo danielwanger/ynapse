@@ -10,13 +10,14 @@ interface LabelNode {
   parent_id: number | null;
   depth: number;
   path: number[];
-  article_count: number; 
+  article_count: number;
 }
 
 interface TreeNode {
   id: number;
   name: string;
-  articleCount: number; // NEU
+  articleCount: number;
+  totalArticleCount: number; // NEU: eigene + alle Unterlabels kumuliert
   children: TreeNode[];
 }
 
@@ -30,7 +31,13 @@ function buildTree(flat: LabelNode[]): TreeNode[] {
 
   for (const l of flat) {
     if (!nodeMap.has(l.id)) {
-      nodeMap.set(l.id, { id: l.id, name: l.name, articleCount: l.article_count ?? 0, children: [] });
+      nodeMap.set(l.id, {
+        id: l.id,
+        name: l.name,
+        articleCount: l.article_count ?? 0,
+        totalArticleCount: 0, // wird unten befuellt
+        children: [],
+      });
     }
   }
 
@@ -47,6 +54,21 @@ function buildTree(flat: LabelNode[]): TreeNode[] {
     const child = nodeMap.get(l.id);
     if (parent && child) parent.children.push(child);
   }
+
+  // Kumulierte Summe post-order berechnen: erst Kinder, dann Elternteil.
+  // Hinweis: bei mehreren Eltern (DAG) wird ein Artikel in jedem Elternpfad
+  // mitgezaehlt -- die Summe ist eine obere Schaetzung, kein eindeutiger
+  // ("distinct article ids") Wert. Fuer eine exakte Dedupe-Zahl braeuchte
+  // es einen Set-basierten Ansatz mit Artikel-IDs statt reiner Addition.
+  function computeTotals(node: TreeNode): number {
+    let total = node.articleCount;
+    for (const child of node.children) {
+      total += computeTotals(child);
+    }
+    node.totalArticleCount = total;
+    return total;
+  }
+  for (const root of roots) computeTotals(root);
 
   return roots.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -86,17 +108,28 @@ function TreeItem({
         >
           {node.name}
         </span>
-        {/* Kinderanzahl (Taxonomie-Struktur) und Artikelanzahl (Inhalt) nebeneinander,
-            damit man auf einen Blick sieht ob ein Knoten strukturell groß ODER inhaltlich befüllt ist. */}
+        {/* Kinderanzahl (Taxonomie-Struktur), direkte Artikelanzahl und
+            kumulierte Gesamtanzahl (Label + alle Unterlabels) nebeneinander.
+            Die Gesamtzahl wird nur gezeigt, wenn sie sich von der direkten
+            Zahl unterscheidet -- sonst waere sie eine redundante Wiederholung
+            bei Blattknoten oder Knoten ohne eigene direkte Artikel. */}
         <span className="tree-counts">
           {hasChildren && (
             <span className="tree-count" title={`${node.children.length} Unterlabels`}>
               {node.children.length} <span className="tree-count-label">Labels</span>
             </span>
           )}
-          <span className="tree-count tree-count-articles" title={`${node.articleCount} Artikel`}>
+          <span className="tree-count tree-count-articles" title={`${node.articleCount} Artikel direkt zugeordnet`}>
             {node.articleCount} <span className="tree-count-label">Art.</span>
           </span>
+          {hasChildren && node.totalArticleCount !== node.articleCount && (
+            <span
+              className="tree-count tree-count-total"
+              title={`${node.totalArticleCount} Artikel gesamt (inkl. aller Unterlabels)`}
+            >
+              {node.totalArticleCount} <span className="tree-count-label">Gesamt</span>
+            </span>
+          )}
         </span>
       </div>
       {hasChildren && open && (
