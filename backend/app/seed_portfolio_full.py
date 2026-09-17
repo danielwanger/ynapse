@@ -11,25 +11,34 @@ der privaten Ynapse-DB in die Portfolio-DB.
 - meta_description wird bewusst NICHT mitkopiert (Presse-Snippet-Risiko,
   §87f-h UrhG / Art. 15 DSM-RL) -- weder gelesen noch geschrieben.
 - Bereits vorhandene Artikel (gleiche URL) werden NICHT neu angelegt,
-  aber ihre Label-Zuordnungen werden bei jedem Lauf aktualisiert (alte
-  article_label-Einträge gelöscht, aktuelle aus der privaten DB
-  nachgezogen) -- so übernimmt ein erneuter Lauf auch Label-Änderungen,
-  die du in ContextHub nachträglich an bereits kopierten Artikeln machst.
+  aber ihr Embedding wird bei jedem Lauf mit dem aktuellen Stand aus der
+  privaten DB abgeglichen [FIX], und ihre Label-Zuordnungen werden bei
+  jedem Lauf aktualisiert (alte article_label-Einträge gelöscht, aktuelle
+  aus der privaten DB nachgezogen) -- so übernimmt ein erneuter Lauf auch
+  Label-Änderungen und Embedding-Bereinigungen, die du in ContextHub
+  nachträglich an bereits kopierten Artikeln machst.
 - Labels (gleicher Name + label_type) werden übersprungen, keine
   Duplikate bei wiederholten Läufen.
 - Parent-Beziehungen werden pro Kind mit dem aktuellen Stand aus der
   privaten DB abgeglichen (Set-Vergleich) und bei Abweichung komplett
   neu geschrieben -- so verschwinden veraltete Parent-Zuordnungen (z.B.
   nach einer Taxonomie-Umstrukturierung in ContextHub) auch im Portfolio.
-- NEU: Artikel, die in der privaten DB ALLE Labels verloren haben (z.B.
-  weil ihr einziges Label geloescht/entkoppelt wurde), werden separat
+- Artikel, die in der privaten DB ALLE Labels verloren haben (z.B. weil
+  ihr einziges Label geloescht/entkoppelt wurde), werden separat
   behandelt: sie fallen aus der normalen "gelabelte Artikel"-Iteration
   raus (fetch_labeled_article_ids() enthaelt sie nicht mehr), wuerden
   ohne diesen Zusatzschritt aber ihre alten, jetzt veralteten
-  Portfolio-Label-Verknuepfungen unveraendert behalten. Der neue Schritt
+  Portfolio-Label-Verknuepfungen unveraendert behalten. Der Schritt
   clear_labels_for_delisted_articles() raeumt genau diesen Fall auf,
   indem er fuer bereits im Portfolio vorhandene Artikel, die NICHT mehr
   in labeled_ids sind, deren article_label-Eintraege im Portfolio leert.
+- [FIX] Bereits vorhandene Artikel bekamen bisher NIE ein aktualisiertes
+  Embedding -- nur Labels wurden synchronisiert, der Insert-Block mit
+  `embedding` wurde per `continue` uebersprungen. Dadurch blieben in
+  ContextHub bereinigte (z.B. auf NULL gesetzte) Embeddings in der
+  Portfolio-DB dauerhaft auf dem alten, ggf. verseuchten Stand. Jetzt
+  wird embedding bei jedem Lauf mit der privaten DB abgeglichen und bei
+  Abweichung ueberschrieben.
 
 Ausführen aus backend/app/:
     python seed_portfolio_full.py            # Vorschau (Dry-Run)
@@ -126,10 +135,19 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
 
 
 def fetch_all_articles_with_embedding():
-    """Holt ALLE Artikel mit Embedding aus der privaten DB, paginiert in
-    1000er-Bloecken (PostgREST-Default-Limit umgehen). meta_description
-    wird bewusst NICHT selektiert (Presse-Snippet-Risiko, soll nie in
-    die Portfolio-DB gelangen)."""
+    """Holt ALLE Artikel aus der privaten DB, paginiert in 1000er-Bloecken
+    (PostgREST-Default-Limit umgehen). meta_description wird bewusst NICHT
+    selektiert (Presse-Snippet-Risiko, soll nie in die Portfolio-DB
+    gelangen).
+
+    [FIX] Der frühere .not_.is_("embedding", "null")-Filter schloss
+    Artikel mit NULL-Embedding schon beim Fetch aus. Das verhinderte, dass
+    ein nachträglich in ContextHub auf NULL gesetztes Embedding (z.B. nach
+    Bereinigung von Paywall-Boilerplate-Content) jemals beim Abgleich in
+    seed_articles() ankam -- der Artikel tauchte in der Liste schlicht
+    nicht mehr auf. Neu-Anlage von Artikeln ganz ohne Embedding wird
+    stattdessen weiter unten in seed_articles() selbst verhindert (dort,
+    wo ohnehin gefiltert wird), damit dieser Fall kontrolliert bleibt."""
     PAGE_SIZE = 1000
     articles = []
     offset = 0
@@ -137,7 +155,6 @@ def fetch_all_articles_with_embedding():
         batch = (
             private.table("articles")
             .select("id, title, url, agency, published_at, embedding")
-            .not_.is_("embedding", "null")
             .order("id")
             .range(offset, offset + PAGE_SIZE - 1)
             .execute()
@@ -312,14 +329,15 @@ def clear_labels_for_delisted_articles(
 def seed_articles(id_map: dict[int, int], dry_run: bool):
     """Kopiert alle gelabelten Artikel mit vorhandenem Embedding und ihre
     Label-Zuordnungen. Bereits vorhandene Artikel werden nicht neu
-    angelegt, aber ihre Label-Zuordnungen werden aktualisiert."""
+    angelegt, aber ihr Embedding [FIX] und ihre Label-Zuordnungen werden
+    aktualisiert."""
     print("\nLade Artikel aus privater DB (paginiert)...")
     articles = fetch_all_articles_with_embedding()
 
     print("Lade gelabelte Artikel-IDs...")
     labeled_ids = fetch_labeled_article_ids()
 
-    # NEU: bevor gefiltert wird, zuerst die Aufraeum-Prüfung für Artikel
+    # Bevor gefiltert wird, zuerst die Aufraeum-Prüfung für Artikel
     # anstoßen, die privat komplett entlabelt wurden -- muss auf der
     # UNGEFILTERTEN Liste passieren, da sonst genau die Artikel, die wir
     # aufräumen wollen, schon vorher rausfallen wuerden.
@@ -357,6 +375,8 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
     copied = 0
     labels_checked = 0
     labels_changed = 0
+    embeddings_updated = 0  # [FIX] Zähler für Transparenz im Log
+    titles_updated = 0  # [FIX] Zähler für Transparenz im Log
 
     for article in articles:
         agency_name = article.get("agency") or "Unbekannt"
@@ -372,14 +392,51 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
                 )
                 agency_cache[agency_name] = created_agency.data[0]["id"]
 
+        # [FIX] embedding mitselektieren, um es unten mit dem privaten
+        # Stand vergleichen zu können.
         existing_article = (
-            portfolio.table("articles").select("id").eq("url", article["url"]).execute()
+            portfolio.table("articles").select("id, embedding, title").eq("url", article["url"]).execute()
         )
+        if not existing_article.data and article.get("embedding") is None:
+            # [FIX] Neu-Anlage ohne Embedding verhindern -- das war vorher
+            # implizit durch den Fetch-Filter sichergestellt, der jetzt
+            # entfernt wurde, damit NULL-Embeddings zum Abgleich bei
+            # bestehenden Artikeln durchkommen können.
+            continue
         if existing_article.data:
-            # Artikel existiert schon -- nicht neu anlegen, Labels nur bei
-            # tatsächlicher Abweichung neu schreiben (Set-Vergleich statt
-            # blindem delete+insert bei allen vorhandenen Artikeln).
+            # Artikel existiert schon -- nicht neu anlegen.
             portfolio_article_id = existing_article.data[0]["id"]
+
+            # [FIX] Embedding immer mit dem aktuellen Stand aus der
+            # privaten DB abgleichen. Schließt die Lücke, durch die
+            # bereinigte (z.B. auf NULL gesetzte) Embeddings in ContextHub
+            # nie ins Portfolio durchgereicht wurden.
+            existing_embedding = existing_article.data[0].get("embedding")
+            new_embedding = article["embedding"]
+            if existing_embedding != new_embedding:
+                portfolio.table("articles").update(
+                    {"embedding": new_embedding}
+                ).eq("id", portfolio_article_id).execute()
+                embeddings_updated += 1
+
+            # [FIX] Titel ebenfalls abgleichen -- deckt Fälle ab, in denen
+            # ein ursprünglich fehlerhaft extrahierter Titel (Scraper-Fehler,
+            # Blockseite, Agenturname statt echtem Titel) in ContextHub
+            # nachträglich manuell korrigiert wurde. Ohne diesen Abgleich
+            # bliebe die Portfolio-DB dauerhaft auf dem alten, falschen Titel
+            # stehen, da der bestehende-Artikel-Zweig sonst nur embedding
+            # und Labels anfasst.
+            existing_title = existing_article.data[0].get("title")
+            new_title = article["title"]
+            if existing_title != new_title:
+                portfolio.table("articles").update(
+                    {"title": new_title}
+                ).eq("id", portfolio_article_id).execute()
+                titles_updated += 1
+
+            # Labels nur bei tatsächlicher Abweichung neu schreiben
+            # (Set-Vergleich statt blindem delete+insert bei allen
+            # vorhandenen Artikeln).
             changed = sync_labels_for_article(article["id"], portfolio_article_id, id_map)
             labels_checked += 1
             if changed:
@@ -424,6 +481,8 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
             print(f"  {copied} kopiert...")
 
     print(f"\n{copied} Artikel neu kopiert")
+    print(f"{embeddings_updated} bestehende Artikel mit geänderten Embeddings aktualisiert")
+    print(f"{titles_updated} bestehende Artikel mit geändertem Titel aktualisiert")
     print(f"{labels_checked} vorhandene Artikel geprüft, davon {labels_changed} mit geänderten Labels aktualisiert")
 
 
