@@ -65,12 +65,32 @@ def get_labels(label_type: str | None = None):
     Liefert die komplette Taxonomie als flache Liste mit depth/path/article_count,
     optional gefiltert nach label_type ('topic' oder 'country').
     Das Frontend baut daraus lokal den Baum auf (path/depth reichen dafür).
+
+    [FIX] supabase.rpc() laeuft ueber PostgREST und unterliegt demselben
+    Default-Limit von 1000 Zeilen pro Request wie normale Table-Selects.
+    label_tree() liefert bei DAG-Strukturen (Labels mit mehreren Eltern)
+    pro Elternpfad eine eigene Zeile -- die echte Zeilenzahl kann also
+    deutlich ueber der Anzahl distinkter Labels liegen. Ohne Paginierung
+    wurden Zeilen jenseits der 1000er-Grenze stillschweigend abgeschnitten,
+    wodurch z.B. das Root-Label "Media" komplett aus der Response fiel,
+    obwohl es in der DB korrekt mit parent_id = null vorhanden war.
     """
     try:
-        result = supabase.rpc(
-            "label_tree", {"filter_label_type": label_type}
-        ).execute()
-        return result.data
+        PAGE_SIZE = 1000
+        rows = []
+        offset = 0
+        while True:
+            batch = (
+                supabase.rpc("label_tree", {"filter_label_type": label_type})
+                .range(offset, offset + PAGE_SIZE - 1)
+                .execute()
+                .data
+            )
+            rows.extend(batch)
+            if len(batch) < PAGE_SIZE:
+                break
+            offset += PAGE_SIZE
+        return rows
     except RemoteProtocolError:
         # nicht hier abfangen -- soll bis zum @with_retry-Decorator
         # durchgereicht werden, damit ein Retry stattfinden kann
