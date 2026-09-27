@@ -6,6 +6,16 @@ der privaten Ynapse-DB in die Portfolio-DB.
 - Artikel-Read paginiert explizit (.range()), weil Supabase/PostgREST
   Selects standardmäßig auf 1000 Zeilen pro Query begrenzt (API-Setting
   "Max Rows").
+- [FIX] label_tree()-RPC-Aufruf ebenfalls paginiert (.range()) -- der
+  RPC-Call unterliegt demselben PostgREST-Default-Limit wie normale
+  Table-Selects. Da label_tree() bei DAG-Strukturen (Labels mit mehreren
+  Eltern) pro Elternpfad eine eigene Zeile liefert, kann die echte
+  Zeilenzahl deutlich über 1000 liegen, obwohl die Anzahl distinkter
+  Labels kleiner ist. Ohne Paginierung wurden Teile des Baums (z.B. ein
+  Root-Label wie "Media" oder dessen Kind-Kanten) beim Cutoff
+  abgeschnitten und tauchten weder in id_map noch in
+  label_relationships auf -- sichtbar als "Label X fehlt als Superparent"
+  im Frontend, obwohl es in der privaten DB existiert.
 - Nur Artikel mit mindestens einem Label (article_label-Eintrag) werden
   kopiert -- ungelabelte Artikel landen NICHT im Portfolio.
 - meta_description wird bewusst NICHT mitkopiert (Presse-Snippet-Risiko,
@@ -40,6 +50,20 @@ der privaten Ynapse-DB in die Portfolio-DB.
   wird embedding bei jedem Lauf mit der privaten DB abgeglichen und bei
   Abweichung ueberschrieben.
 
+BEKANNTE EINSCHRAENKUNG (noch nicht gefixt, siehe Chat):
+  Ein Artikel, der noch NICHT im Portfolio existiert UND in der privaten
+  DB (noch) kein Embedding hat, wird in seed_articles() per `continue`
+  uebersprungen -- weder als "existing" geprueft noch neu angelegt. Er
+  bleibt bei jedem Lauf unsichtbar, bis er in der privaten DB ein
+  Embedding bekommt (z.B. durch einen separaten Embedding-Job) und das
+  Skript danach erneut laeuft. Zwei moegliche Loesungen:
+    1. Embedding direkt hier im Seed-Skript berechnen und in private +
+       Portfolio-DB schreiben, wenn es fehlt.
+    2. Sicherstellen, dass ein separater Job neue Artikel zeitnah nach
+       dem Scraping embedded, bevor seed_portfolio_full.py laeuft.
+  Noch nicht entschieden -- aktuelles Skip-Verhalten unveraendert
+  gelassen.
+
 Ausführen aus backend/app/:
     python seed_portfolio_full.py            # Vorschau (Dry-Run)
     python seed_portfolio_full.py --apply    # tatsächlich schreiben
@@ -60,17 +84,43 @@ private = create_client(PRIVATE_URL, PRIVATE_KEY)
 portfolio = create_client(PORTFOLIO_URL, PORTFOLIO_KEY)
 
 
+def fetch_label_tree(label_type: str) -> list[dict]:
+    """[FIX] Holt den kompletten label_tree()-RPC-Output paginiert.
+    Ohne .range() schneidet PostgREST bei 1000 Zeilen ab (Default "Max
+    Rows"). Da label_tree() bei mehreren Eltern (DAG) pro Elternpfad
+    eine eigene Zeile liefert, kann die echte Zeilenzahl weit über der
+    Anzahl distinkter Labels liegen -- betraf zuletzt z.B. ein Root-Label
+    wie "Media", dessen Zeile(n) durch den Cutoff verschluckt wurden und
+    dadurch im Portfolio als Superparent fehlten."""
+    PAGE_SIZE = 1000
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        batch = (
+            private.rpc("label_tree", {"filter_label_type": label_type})
+            .range(offset, offset + PAGE_SIZE - 1)
+            .execute()
+            .data
+        )
+        rows.extend(batch)
+        if len(batch) < PAGE_SIZE:
+            break
+        offset += PAGE_SIZE
+    return rows
+
+
 def seed_labels(dry_run: bool) -> dict[int, int]:
     """Kopiert die komplette Taxonomie (topic + country), id-Remapping
     weil die Portfolio-DB eigene, neue ids vergibt."""
     id_map: dict[int, int] = {}  # private id -> portfolio id
 
     for label_type in ("topic", "country"):
-        tree = private.rpc("label_tree", {"filter_label_type": label_type}).execute().data
-        print(f"{label_type}: {len(tree)} Labels in privater DB gefunden")
+        tree = fetch_label_tree(label_type)  # [FIX] paginiert statt einzelner .execute()
+        print(f"{label_type}: {len(tree)} Zeilen aus label_tree() geladen (paginiert)")
 
         if dry_run:
-            print(f"  [DRY RUN] wuerde {len(tree)} {label_type}-Labels + Beziehungen kopieren")
+            distinct_ids = {row["id"] for row in tree}
+            print(f"  [DRY RUN] wuerde {len(distinct_ids)} distinkte {label_type}-Labels + Beziehungen kopieren")
             continue
 
         seen_ids = set()
@@ -330,7 +380,11 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
     """Kopiert alle gelabelten Artikel mit vorhandenem Embedding und ihre
     Label-Zuordnungen. Bereits vorhandene Artikel werden nicht neu
     angelegt, aber ihr Embedding [FIX] und ihre Label-Zuordnungen werden
-    aktualisiert."""
+    aktualisiert.
+
+    HINWEIS: Ein Artikel ohne Embedding, der noch nicht im Portfolio
+    existiert, wird uebersprungen (siehe Modul-Docstring, "BEKANNTE
+    EINSCHRAENKUNG")."""
     print("\nLade Artikel aus privater DB (paginiert)...")
     articles = fetch_all_articles_with_embedding()
 
@@ -377,6 +431,7 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
     labels_changed = 0
     embeddings_updated = 0  # [FIX] Zähler für Transparenz im Log
     titles_updated = 0  # [FIX] Zähler für Transparenz im Log
+    skipped_no_embedding = 0  # Zähler für Transparenz: neue Artikel ohne Embedding
 
     for article in articles:
         agency_name = article.get("agency") or "Unbekannt"
@@ -398,10 +453,9 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
             portfolio.table("articles").select("id, embedding, title").eq("url", article["url"]).execute()
         )
         if not existing_article.data and article.get("embedding") is None:
-            # [FIX] Neu-Anlage ohne Embedding verhindern -- das war vorher
-            # implizit durch den Fetch-Filter sichergestellt, der jetzt
-            # entfernt wurde, damit NULL-Embeddings zum Abgleich bei
-            # bestehenden Artikeln durchkommen können.
+            # Neu-Anlage ohne Embedding verhindern (siehe "BEKANNTE
+            # EINSCHRAENKUNG" im Modul-Docstring).
+            skipped_no_embedding += 1
             continue
         if existing_article.data:
             # Artikel existiert schon -- nicht neu anlegen.
@@ -481,6 +535,8 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
             print(f"  {copied} kopiert...")
 
     print(f"\n{copied} Artikel neu kopiert")
+    if skipped_no_embedding:
+        print(f"{skipped_no_embedding} neue Artikel uebersprungen, weil noch kein Embedding vorhanden ist (siehe 'BEKANNTE EINSCHRAENKUNG')")
     print(f"{embeddings_updated} bestehende Artikel mit geänderten Embeddings aktualisiert")
     print(f"{titles_updated} bestehende Artikel mit geändertem Titel aktualisiert")
     print(f"{labels_checked} vorhandene Artikel geprüft, davon {labels_changed} mit geänderten Labels aktualisiert")
