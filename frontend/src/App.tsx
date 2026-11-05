@@ -8,6 +8,8 @@ import FeedPage from "./pages/FeedPage";
 import GraphPage from "./pages/GraphPage";
 import ContextView from "./pages/ContextView";
 import WeeklyView from "./pages/WeeklyView";
+import ImpressumPage from "./pages/ImpressumPage";
+import DatenschutzPage from "./pages/DatenschutzPage";
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
         <Route path="/feed" element={<FeedPage />} />
         <Route path="/graph" element={<GraphPage />} />
         <Route path="/articles/:articleId/context" element={<ContextView />} />
+        <Route path="/impressum" element={<ImpressumPage />} />
+        <Route path="/datenschutz" element={<DatenschutzPage />} />
       </Routes>
       <Footer />
     </div>

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import "./footer.css";
 
 export default function Footer() {
@@ -9,6 +10,11 @@ export default function Footer() {
           multilingual-e5-large
         </a>{" "}
         · Cosine Similarity · pgvector (Supabase/Postgres)
+      </span>
+      <span style={{ marginLeft: "1rem" }}>
+        <Link to="/impressum">Impressum</Link>
+        {" · "}
+        <Link to="/datenschutz">Datenschutz</Link>
       </span>
     </footer>
   );
