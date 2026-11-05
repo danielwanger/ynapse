@@ -172,3 +172,196 @@
   color: #777;
   font-size: 0.8rem;
 }
+
+.weekly-year-section {
+  max-width: 720px;
+}
+ 
+.weekly-year-heading {
+  margin: 2rem 0 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #777;
+  border-bottom: 1px solid #262626;
+  padding-bottom: 0.4rem;
+}
+ 
+.weekly-week-heading-wrap {
+  font-size: 1rem; /* h3 statt h2: Größe/Margin hier kontrollieren */
+}
+ 
+.weekly-week-range {
+  font-weight: 400;
+  color: #888;
+}
+ 
+.weekly-week-tag {
+  margin-left: 0.6rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #d9824a;
+  border: 1px solid #d9824a;
+}
+ 
+/* Umschalter Liste / Kalender */
+.weekly-view-toggle {
+  display: inline-flex;
+  margin: 0.5rem 0 1.5rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+}
+ 
+.weekly-view-toggle button {
+  padding: 0.4rem 1rem;
+  background: transparent;
+  border: none;
+  color: #999;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+ 
+.weekly-view-toggle button:hover {
+  color: #eee;
+}
+ 
+.weekly-view-toggle button.active {
+  background: #1f1f1f;
+  color: #d9824a;
+  font-weight: 600;
+}
+ 
+/* Kalender */
+.weekly-cal {
+  max-width: 720px;
+}
+ 
+.weekly-cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+ 
+.weekly-cal-title {
+  min-width: 9rem;
+  text-align: center;
+  font-weight: 600;
+  color: #eee;
+}
+ 
+.weekly-cal-btn {
+  padding: 0.25rem 0.7rem;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #999;
+  font: inherit;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+ 
+.weekly-cal-btn:hover {
+  color: #eee;
+  border-color: #d9824a;
+}
+ 
+.weekly-cal-today {
+  margin-left: auto;
+  font-size: 0.85rem;
+}
+ 
+.weekly-cal-grid {
+  display: grid;
+  grid-template-columns: 2.5rem repeat(7, 1fr) 5rem;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+ 
+.weekly-cal-head {
+  padding: 0.3rem 0;
+  font-size: 0.8rem;
+  color: #777;
+}
+ 
+.weekly-cal-row {
+  padding: 0.55rem 0;
+  margin-bottom: 2px;
+  background: #161616;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  color: #eee;
+  font: inherit;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+ 
+.weekly-cal-row:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: #555;
+  cursor: default;
+}
+ 
+.weekly-cal-row.has-data {
+  cursor: pointer;
+}
+ 
+.weekly-cal-row.has-data:hover {
+  border-color: #d9824a;
+  background: #1f1f1f;
+}
+ 
+.weekly-cal-row.selected {
+  border-color: #d9824a;
+  background: #1f1f1f;
+}
+ 
+.weekly-cal-kw {
+  font-size: 0.8rem;
+  color: #888;
+}
+ 
+.weekly-cal-row.selected .weekly-cal-kw {
+  color: #d9824a;
+}
+ 
+.weekly-cal-day.outside {
+  color: #555;
+}
+ 
+.weekly-cal-day.today {
+  color: #d9824a;
+  font-weight: 700;
+}
+ 
+.weekly-cal-meta {
+  font-size: 0.75rem;
+  color: #888;
+}
+ 
+.weekly-cal-detail {
+  margin-top: 1.5rem;
+}
+ 
+.weekly-cal-detail-title {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #eee;
+}
+ 
+@media (max-width: 600px) {
+  .weekly-cal-grid {
+    grid-template-columns: 2rem repeat(7, 1fr);
+  }
+  .weekly-cal-meta {
+    display: none;
+  }
+}
+ 

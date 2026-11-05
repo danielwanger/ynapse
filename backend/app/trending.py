@@ -22,7 +22,10 @@ def trending_topics(days: int = Query(7, ge=1, le=90), limit: int = Query(10, ge
 
 @router.get("/topics/by-week")
 @with_retry()
-def trending_topics_by_week(weeks: int = Query(4, ge=1, le=12), limit_per_week: int = Query(10, ge=1, le=20)):
+def trending_topics_by_week(
+    weeks: int = Query(4, ge=1, le=520),
+    limit_per_week: int = Query(10, ge=1, le=20),
+):
     """
     Wie trending_topics(), aber aufgeteilt nach Kalenderwochen (Mo-So).
     Jede Woche wird einzeln geranked, damit z.B. "Diese Woche" nicht von
