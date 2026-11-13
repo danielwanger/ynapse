@@ -70,6 +70,8 @@ Ausführen aus backend/app/:
 """
 import argparse
 import os
+import time
+from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -82,6 +84,49 @@ PORTFOLIO_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
 private = create_client(PRIVATE_URL, PRIVATE_KEY)
 portfolio = create_client(PORTFOLIO_URL, PORTFOLIO_KEY)
+
+
+def _fmt(seconds: float) -> str:
+    seconds = int(seconds)
+    if seconds >= 3600:
+        return f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
+    return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+
+def log(msg: str) -> None:
+    """Zeitgestempelte Ausgabe, sofort geflusht (damit Fortschritt auch in
+    Logdatei/Pipe live erscheint)."""
+    print(f"[{datetime.now():%H:%M:%S}] {msg}", flush=True)
+
+
+class Progress:
+    """Zeitbasierte Fortschrittsanzeige in Zeilenform (log-tauglich, kein
+    \\r-Balken): hoechstens eine Zeile pro `interval` Sekunden, plus
+    Abschlusszeile. Zeigt erledigt/gesamt, Prozent, vergangene Zeit und
+    eine grobe Restzeit-Schaetzung (linear hochgerechnet)."""
+
+    def __init__(self, label: str, total: int, interval: float = 10.0):
+        self.label = label
+        self.total = total
+        self.interval = interval
+        self.start = time.monotonic()
+        self.last_print = self.start
+        log(f"{label}: Start ({total} Eintraege)")
+
+    def update(self, done: int) -> None:
+        now = time.monotonic()
+        if now - self.last_print < self.interval:
+            return
+        self.last_print = now
+        elapsed = now - self.start
+        pct = (done / self.total * 100) if self.total else 100.0
+        eta = ""
+        if 0 < done < self.total:
+            eta = f", Rest ca. {_fmt(elapsed / done * (self.total - done))}"
+        log(f"{self.label}: {done}/{self.total} ({pct:.0f} %), vergangen {_fmt(elapsed)}{eta}")
+
+    def finish(self) -> None:
+        log(f"{self.label}: fertig in {_fmt(time.monotonic() - self.start)}")
 
 
 def fetch_label_tree(label_type: str) -> list[dict]:
@@ -124,7 +169,9 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
             continue
 
         seen_ids = set()
-        for row in tree:
+        prog = Progress(f"Labels ({label_type})", len(tree))
+        for i, row in enumerate(tree, 1):
+            prog.update(i)
             if row["id"] in seen_ids:
                 continue
             seen_ids.add(row["id"])
@@ -145,6 +192,8 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
             )
             id_map[row["id"]] = created.data[0]["id"]
 
+        prog.finish()
+
         # Ziel-Stand der Beziehungen (aus privater DB) pro Kind sammeln,
         # um veraltete Parent-Zuordnungen zu erkennen (z.B. wenn ein Label
         # in ContextHub den Parent gewechselt hat).
@@ -159,7 +208,9 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
             target_rels_by_child.setdefault(new_child, set()).add(new_parent)
 
         rels_updated = 0
-        for new_child, target_parents in target_rels_by_child.items():
+        prog_rel = Progress(f"Beziehungen ({label_type})", len(target_rels_by_child))
+        for i, (new_child, target_parents) in enumerate(target_rels_by_child.items(), 1):
+            prog_rel.update(i)
             existing_rel = (
                 portfolio.table("label_relationships")
                 .select("parent_id")
@@ -178,6 +229,7 @@ def seed_labels(dry_run: bool) -> dict[int, int]:
                 ).execute()
             rels_updated += 1
 
+        prog_rel.finish()
         print(f"  {label_type}: {len(id_map)} Labels total nach Kopiervorgang")
         print(f"  {label_type}: {rels_updated} Labels mit geänderten Parent-Beziehungen aktualisiert")
 
@@ -332,9 +384,12 @@ def clear_labels_for_delisted_articles(
     # lesend: url_to_portfolio_id + article_label-select), damit die
     # Vorschau nicht nur die rohe, oft viel zu hohe private Zahl zeigt,
     # sondern die tatsaechlich betroffene Teilmenge im Portfolio.
+    log("Lade Artikel-URLs aus der Portfolio-DB...")
     url_to_portfolio_id = fetch_portfolio_url_to_id_map()
     would_affect = 0
-    for article in now_unlabeled:
+    prog = Progress("Entlabelte Artikel pruefen", len(now_unlabeled))
+    for i, article in enumerate(now_unlabeled, 1):
+        prog.update(i)
         portfolio_id = url_to_portfolio_id.get(article["url"])
         if portfolio_id is None:
             continue
@@ -348,13 +403,17 @@ def clear_labels_for_delisted_articles(
         if existing_links:
             would_affect += 1
 
+    prog.finish()
+
     if dry_run:
         print(f"  Davon existieren {would_affect} im Portfolio noch mit alten Label-Verknuepfungen.")
         print("  [DRY RUN] wuerde diese leeren.")
         return 0
 
     cleared = 0
-    for article in now_unlabeled:
+    prog_clear = Progress("Entlabelte Artikel leeren", len(now_unlabeled))
+    for i, article in enumerate(now_unlabeled, 1):
+        prog_clear.update(i)
         portfolio_id = url_to_portfolio_id.get(article["url"])
         if portfolio_id is None:
             continue  # nie geseedet, nichts zu tun
@@ -372,6 +431,7 @@ def clear_labels_for_delisted_articles(
         portfolio.table("article_label").delete().eq("article_id", portfolio_id).execute()
         cleared += 1
 
+    prog_clear.finish()
     print(f"  {cleared} Portfolio-Artikel hatten noch veraltete Label-Verknuepfungen und wurden geleert.")
     return cleared
 
@@ -433,7 +493,9 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
     titles_updated = 0  # [FIX] Zähler für Transparenz im Log
     skipped_no_embedding = 0  # Zähler für Transparenz: neue Artikel ohne Embedding
 
-    for article in articles:
+    prog = Progress("Artikel", len(articles))
+    for i, article in enumerate(articles, 1):
+        prog.update(i)
         agency_name = article.get("agency") or "Unbekannt"
         if agency_name not in agency_cache:
             existing_agency = (
@@ -534,6 +596,7 @@ def seed_articles(id_map: dict[int, int], dry_run: bool):
         if copied % 100 == 0:
             print(f"  {copied} kopiert...")
 
+    prog.finish()
     print(f"\n{copied} Artikel neu kopiert")
     if skipped_no_embedding:
         print(f"{skipped_no_embedding} neue Artikel uebersprungen, weil noch kein Embedding vorhanden ist (siehe 'BEKANNTE EINSCHRAENKUNG')")
@@ -580,7 +643,9 @@ def seed_label_resources(id_map: dict[int, int], dry_run: bool):
         return
 
     portfolio.table("label_resources").delete().neq("id", 0).execute()
-    for r in mapped:
+    prog = Progress("label_resources", len(mapped))
+    for i, r in enumerate(mapped, 1):
+        prog.update(i)
         portfolio.table("label_resources").insert({
             "label_id": r["label_id"],
             "url": r["url"],
@@ -590,6 +655,7 @@ def seed_label_resources(id_map: dict[int, int], dry_run: bool):
             "sort_order": r.get("sort_order", 0),
         }).execute()
 
+    prog.finish()
     print(f"  {len(mapped)} label_resources in Portfolio-DB geschrieben")
 
 
@@ -604,11 +670,19 @@ def main():
     else:
         print("=== ECHTER LAUF -- Aenderungen werden geschrieben ===\n")
 
+    t0 = time.monotonic()
+
+    log("=== Phase 1/3: Taxonomie (Labels + Beziehungen) ===")
     id_map = seed_labels(dry_run)
+
+    log("=== Phase 2/3: Artikel ===")
     seed_articles(id_map, dry_run)
+
+    log("=== Phase 3/3: label_resources ===")
     seed_label_resources(id_map, dry_run)
 
-    print("\nFertig." if not dry_run else "\nVorschau abgeschlossen.")
+    log(f"Gesamtdauer: {_fmt(time.monotonic() - t0)}")
+    print("\nFertig." if not dry_run else "\nVorschau abgeschlossen.", flush=True)
 
 
 if __name__ == "__main__":
